@@ -2330,7 +2330,10 @@ const courseDataDefaults = {
     }
 };
 
-function getDefaultCourseData() { return JSON.parse(JSON.stringify(courseDataDefaults)); }
+async function getCourseData() {
+    const serverData = await loadCourseData();
+    return serverData;
+}
 
 // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
 function showNotification(message, type = 'info', duration = 4000) {
