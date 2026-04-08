@@ -13,10 +13,6 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 
 // Инициализация базы данных
 function initDatabase() {
-
-        console.log('🗑️ Старая БД удалена');
-    }
-    
     if (!fs.existsSync(DATA_FILE)) {
         const initialData = {
             users: [],
@@ -47,7 +43,6 @@ function saveData(data) {
 
 initDatabase();
 
-// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
 function isOwner(email) {
     const data = loadData();
     return data.ownerEmail === email;
@@ -67,7 +62,6 @@ function hasAccessToTask(userEmail, taskId) {
     return access && access.canAccess && access.canAccess.includes(taskId);
 }
 
-// ============ АВТОРИЗАЦИЯ ============
 app.post('/api/register', (req, res) => {
     const { email, username, password } = req.body;
     const data = loadData();
@@ -111,7 +105,6 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// ============ УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ============
 app.get('/api/users', (req, res) => {
     const { email } = req.query;
     const data = loadData();
@@ -237,7 +230,6 @@ app.get('/api/my-tasks/:email', (req, res) => {
     res.json({ tasks: access.canAccess });
 });
 
-// ============ ВЫПОЛНЕННЫЕ ЗАДАНИЯ ============
 app.get('/api/completed/:email', (req, res) => {
     const { email } = req.params;
     const data = loadData();
@@ -274,7 +266,6 @@ app.post('/api/unmark-completed', (req, res) => {
     res.json({ success: true });
 });
 
-// ============ АДМИН-ДАННЫЕ ============
 app.get('/api/admin-data', (req, res) => {
     const data = loadData();
     res.json({
@@ -334,7 +325,6 @@ app.post('/api/save-test-questions', (req, res) => {
     res.json({ success: true });
 });
 
-// ============ ОШИБКИ ============
 app.get('/api/mistakes', (req, res) => {
     const data = loadData();
     res.json({
@@ -352,7 +342,6 @@ app.post('/api/save-mistakes', (req, res) => {
     res.json({ success: true });
 });
 
-// ============ ПОЛНЫЙ ИМПОРТ ============
 app.post('/api/import-all', (req, res) => {
     const importedData = req.body;
     const currentData = loadData();
