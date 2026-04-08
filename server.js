@@ -13,6 +13,9 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 
 // Инициализация базы данных
 function initDatabase() {
+    // ВРЕМЕННО: удаляем старую БД при запуске
+    if (fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
+    
     if (!fs.existsSync(DATA_FILE)) {
         const initialData = {
             users: [],
@@ -28,7 +31,7 @@ function initDatabase() {
             ownerEmail: null
         };
         fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
-        console.log('✅ Создан файл database.json');
+        console.log('✅ Создан новый database.json');
     }
 }
 
