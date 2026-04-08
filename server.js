@@ -13,8 +13,7 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 
 // Инициализация базы данных
 function initDatabase() {
-    // ВРЕМЕННО: удаляем старую БД при запуске
-    if (fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
+
     
     if (!fs.existsSync(DATA_FILE)) {
         const initialData = {
