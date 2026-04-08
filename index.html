@@ -45,11 +45,7 @@ body {
     gap: 10px;
 }
 
-.notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-
+.notification.show { opacity: 1; transform: translateY(0); }
 .notification.success { background: linear-gradient(135deg, #4CAF50, #45a049); border-left: 4px solid #2E7D32; }
 .notification.info { background: linear-gradient(135deg, #2196F3, #0b7dda); border-left: 4px solid #0d47a1; }
 .notification.warning { background: linear-gradient(135deg, #ff9800, #f57c00); border-left: 4px solid #e65100; }
@@ -787,7 +783,6 @@ sup, sub { font-size: 0.75em; line-height: 1; }
 .theory-section li { margin-bottom: 0.8rem; line-height: 1.6; }
 .formula-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .formula-card { background: white; padding: 1.5rem; border-radius: 8px; border: 2px solid #e9ecef; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.formula-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .formula-card h5 { color: #2c3e50; margin-bottom: 1rem; font-size: 1.1rem; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
 .formula-item { margin-bottom: 1rem; padding: 0.8rem; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #9b59b6; font-family: 'Cambria Math', serif; font-size: 16px; }
 
@@ -1289,6 +1284,7 @@ footer p { display: flex; align-items: center; justify-content: center; gap: 8px
                 <button class="admin-tab" data-tab="edit-practice"><i class="fas fa-bullseye"></i> Практические задания</button>
                 <button class="admin-tab" data-tab="edit-theory"><i class="fas fa-book"></i> Теория и алгоритмы</button>
                 <button class="admin-tab" data-tab="edit-test"><i class="fas fa-clipboard-list"></i> Итоговый тест</button>
+                <button class="admin-tab" data-tab="edit-users"><i class="fas fa-users"></i> Пользователи</button>
             </div>
             
             <div id="edit-examples" class="admin-tab-content active">
@@ -1651,6 +1647,63 @@ footer p { display: flex; align-items: center; justify-content: center; gap: 8px
                 <div class="admin-section">
                     <h3><i class="fas fa-list"></i> Вопросы теста</h3>
                     <div id="test-questions-list" class="admin-list"></div>
+                </div>
+            </div>
+
+            <div id="edit-users" class="admin-tab-content">
+                <div class="admin-section">
+                    <h3><i class="fas fa-user-plus"></i> Добавить ученика</h3>
+                    <div class="form-group">
+                        <label>Email ученика:</label>
+                        <input type="email" id="new-student-email" class="form-control" placeholder="student@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Имя ученика:</label>
+                        <input type="text" id="new-student-name" class="form-control" placeholder="Иван Иванов">
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль:</label>
+                        <input type="text" id="new-student-password" class="form-control" placeholder="пароль">
+                    </div>
+                    <button id="add-student-btn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Добавить ученика
+                    </button>
+                </div>
+                
+                <div class="admin-section">
+                    <h3><i class="fas fa-list"></i> Список пользователей</h3>
+                    <div id="users-list" class="admin-list">
+                        <p>Загрузка...</p>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h3><i class="fas fa-key"></i> Управление доступом к заданиям</h3>
+                    <div class="form-group">
+                        <label>Выберите ученика:</label>
+                        <select id="access-student-select" class="form-control">
+                            <option value="">-- Выберите ученика --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите задание:</label>
+                        <select id="access-task-select" class="form-control">
+                            <option value="13_0">Задание 13 - Уравнения</option>
+                            <option value="15_0">Задание 15 - Неравенства</option>
+                            <option value="18_0">Задание 18 - Параметры</option>
+                        </select>
+                    </div>
+                    <div class="button-group" style="display: flex; gap: 10px;">
+                        <button id="grant-access-btn" class="btn btn-success">
+                            <i class="fas fa-check"></i> Выдать доступ
+                        </button>
+                        <button id="revoke-access-btn" class="btn btn-danger">
+                            <i class="fas fa-times"></i> Забрать доступ
+                        </button>
+                    </div>
+                    <div id="student-tasks-list" class="admin-list" style="margin-top: 15px;">
+                        <p>Выберите ученика</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2046,8 +2099,268 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
         return await response.json();
     } catch (error) {
         console.error('Ошибка API:', error);
-        showNotification('Ошибка соединения с сервером. Запустите node server.js', 'error');
+        showNotification('Ошибка соединения с сервером', 'error');
         return null;
+    }
+}
+
+// ============ СИСТЕМА АВТОРИЗАЦИИ ============
+class UserSystem {
+    constructor() {
+        this.currentUser = null;
+        this.loadFromLocalStorage();
+    }
+    loadFromLocalStorage() { const user = localStorage.getItem('currentUser'); if (user) this.currentUser = JSON.parse(user); }
+    saveToLocalStorage() { if (this.currentUser) localStorage.setItem('currentUser', JSON.stringify(this.currentUser)); }
+    async register(email, username, password) {
+        const result = await apiRequest('/api/register', 'POST', { email, username, password });
+        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
+        return { success: false, message: result?.message || 'Ошибка регистрации' };
+    }
+    async login(email, password) {
+        const result = await apiRequest('/api/login', 'POST', { email, password });
+        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
+        return { success: false, message: result?.message || 'Ошибка входа' };
+    }
+    logout() { this.currentUser = null; localStorage.removeItem('currentUser'); }
+}
+
+// ============ СИСТЕМА ВЫПОЛНЕННЫХ ЗАДАНИЙ ============
+class TaskCompletionSystem {
+    constructor() {
+        this.completedTasks = [];
+        this.currentUser = userSystem?.currentUser || null;
+        this.init();
+    }
+    getTaskId(taskNumber, taskIndex) { return `${taskNumber}_${taskIndex}`; }
+    async loadCompletedTasksFromServer() {
+        if (!this.currentUser) return [];
+        const result = await apiRequest(`/api/completed/${encodeURIComponent(this.currentUser.email)}`);
+        this.completedTasks = result?.completed || [];
+        return this.completedTasks;
+    }
+    async markTaskAsCompleted(taskNumber, taskIndex) {
+        if (!this.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return false; }
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        const result = await apiRequest('/api/mark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
+        if (result && result.success) {
+            await this.loadCompletedTasksFromServer();
+            this.updateCompletionState(taskNumber, taskIndex);
+            this.updateStatistics();
+            showNotification('Задание отмечено как выполненное!', 'success');
+            createConfetti();
+            return true;
+        }
+        return false;
+    }
+    async unmarkTask(taskNumber, taskIndex) {
+        if (!this.currentUser) return false;
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        const result = await apiRequest('/api/unmark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
+        if (result && result.success) {
+            await this.loadCompletedTasksFromServer();
+            this.updateCompletionState(taskNumber, taskIndex);
+            this.updateStatistics();
+            showNotification('Задание снято с выполнения', 'info');
+            return true;
+        }
+        return false;
+    }
+    isTaskCompleted(taskNumber, taskIndex) {
+        if (!this.currentUser) return false;
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        return this.completedTasks.includes(taskId);
+    }
+    async getStatistics() {
+        if (!this.currentUser) return { completed: 0, totalTasks: 0, percentage: 0, level: "Новичок" };
+        await this.loadCompletedTasksFromServer();
+        const completed = this.completedTasks.length;
+        const currentData = await loadCourseData();
+        let totalTasks = 0;
+        for (let taskNumber in currentData) totalTasks += currentData[taskNumber].practice.length;
+        const percentage = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
+        let level = "Новичок";
+        if (percentage >= 90) level = "Гений математики";
+        else if (percentage >= 80) level = "Эксперт";
+        else if (percentage >= 60) level = "Продвинутый";
+        else if (percentage >= 40) level = "Средний";
+        else if (percentage >= 20) level = "Начинающий";
+        return { completed, totalTasks, percentage, level };
+    }
+    updateCompletionState(taskNumber, taskIndex) {
+        const markButton1 = document.getElementById('mark-completed');
+        const markButton2 = document.getElementById('mark-completed-practice');
+        const isCompleted = this.isTaskCompleted(taskNumber, taskIndex);
+        if (markButton1) {
+            if (isCompleted) { markButton1.innerHTML = '<i class="fas fa-check-circle"></i>'; markButton1.classList.add('completed'); }
+            else { markButton1.innerHTML = '<i class="far fa-check-circle"></i>'; markButton1.classList.remove('completed'); }
+        }
+        if (markButton2) {
+            if (isCompleted) { markButton2.innerHTML = '<i class="fas fa-check-circle"></i> Выполнено'; markButton2.classList.add('completed'); }
+            else { markButton2.innerHTML = '<i class="far fa-check-circle"></i> Отметить как выполненное'; markButton2.classList.remove('completed'); }
+        }
+        this.updateNavigationIndicators();
+    }
+    updateNavigationIndicators() {
+        if (!this.currentUser) return;
+        [13, 15, 18].forEach(taskNumber => {
+            const navLinks = document.querySelectorAll(`.nav-link[data-task="${taskNumber}"]`);
+            const hasCompletedTasks = this.completedTasks.some(taskId => taskId.startsWith(`${taskNumber}_`));
+            navLinks.forEach(link => { if (hasCompletedTasks) link.classList.add('completed'); else link.classList.remove('completed'); });
+        });
+    }
+    async updateStatistics() {
+        const stats = await this.getStatistics();
+        if (document.getElementById('completed-tasks')) document.getElementById('completed-tasks').textContent = `${stats.completed}/${stats.totalTasks}`;
+        if (document.getElementById('progress-percent')) document.getElementById('progress-percent').textContent = `${stats.percentage}%`;
+        if (document.getElementById('user-level')) document.getElementById('user-level').textContent = stats.level;
+        const progressFill = document.getElementById('progress-fill');
+        if (progressFill) progressFill.style.width = `${stats.percentage}%`;
+        await this.updateSectionStatistics();
+    }
+    async updateSectionStatistics() {
+        if (!this.currentUser) return;
+        await this.loadCompletedTasksFromServer();
+        const currentData = await loadCourseData();
+        for (let taskNumber of [13, 15, 18]) {
+            const completedInSection = this.completedTasks.filter(taskId => taskId.startsWith(`${taskNumber}_`)).length;
+            const totalInSection = currentData[taskNumber]?.practice?.length || 0;
+            const percentage = totalInSection > 0 ? Math.round((completedInSection / totalInSection) * 100) : 0;
+            const progressBar = document.getElementById(`progress-${taskNumber}`);
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            const counter = document.getElementById(`completed-${taskNumber}`);
+            if (counter) counter.textContent = `${completedInSection}/${totalInSection}`;
+        }
+    }
+    setupMarkButtons() {
+        const markButton1 = document.getElementById('mark-completed');
+        const markButton2 = document.getElementById('mark-completed-practice');
+        if (markButton1) markButton1.addEventListener('click', () => this.handleMarkButtonClick());
+        if (markButton2) markButton2.addEventListener('click', () => this.handleMarkButtonClick());
+    }
+    async handleMarkButtonClick() {
+        const taskNumber = parseInt(currentTask);
+        const taskIndex = currentTaskIndex[taskNumber];
+        if (this.isTaskCompleted(taskNumber, taskIndex)) await this.unmarkTask(taskNumber, taskIndex);
+        else await this.markTaskAsCompleted(taskNumber, taskIndex);
+    }
+    async init() {
+        await this.loadCompletedTasksFromServer();
+        this.setupMarkButtons();
+        await this.updateStatistics();
+    }
+}
+
+// ============ ЗАГРУЗКА ДАННЫХ С СЕРВЕРА ============
+async function loadCourseData() {
+    const result = await apiRequest('/api/admin-data');
+    if (result && result.adminExamples) {
+        localStorage.setItem('cachedCourseData', JSON.stringify(result));
+        return {
+            13: {
+                title: "Задание 13: Уравнения",
+                theory: result.adminTheory[13] || courseDataDefaults[13].theory,
+                algorithm: result.adminAlgorithm[13] || courseDataDefaults[13].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[13] || []),
+                practice: result.adminPractice[13] || []
+            },
+            15: {
+                title: "Задание 15: Неравенства",
+                theory: result.adminTheory[15] || courseDataDefaults[15].theory,
+                algorithm: result.adminAlgorithm[15] || courseDataDefaults[15].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[15] || []),
+                practice: result.adminPractice[15] || []
+            },
+            18: {
+                title: "Задание 18: Параметры",
+                theory: result.adminTheory[18] || courseDataDefaults[18].theory,
+                algorithm: result.adminAlgorithm[18] || courseDataDefaults[18].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[18] || []),
+                practice: result.adminPractice[18] || []
+            }
+        };
+    }
+    return getDefaultCourseData();
+}
+
+function buildExamplesHTML(examples) {
+    if (!examples.length) return `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><p>Примеры пока не добавлены. Администратор может добавить их в админ-панели.</p></div>`;
+    let html = `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><div class="example-tabs">`;
+    const types = [...new Set(examples.map(e => e.type))];
+    types.forEach((type, i) => { html += `<button class="example-tab ${i === 0 ? 'active' : ''}" data-type="${type}">${getExampleTypeName(type)}</button>`; });
+    html += `</div><div class="examples-content">`;
+    examples.forEach(example => {
+        html += `<div class="example ${example.type}"><div class="example-header"><div class="example-title">${example.title}</div><div class="example-type"><i class="fas fa-${getExampleIcon(example.type)}"></i> ${getExampleTypeName(example.type)}</div></div><p><strong>Пример:</strong> ${example.statement}</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Подробное решение:</h4>${example.solution}</div></div>`;
+    });
+    html += `</div></div>`;
+    return html;
+}
+
+function getExampleIcon(type) {
+    const icons = { 'trigonometric': 'sin', 'exponential': 'superscript', 'logarithmic': 'log', 'rational': 'divide', 'inequality': 'not-equal', 'system': 'project-diagram', 'equation': 'equals', 'quadratic': 'square', 'graphical': 'chart-line' };
+    return icons[type] || 'calculator';
+}
+
+function getExampleTypeName(type) {
+    const names = { 'trigonometric': 'Тригонометрия', 'exponential': 'Показательное', 'logarithmic': 'Логарифмическое', 'rational': 'Рациональное', 'inequality': 'Неравенство', 'system': 'Система', 'equation': 'Уравнение', 'quadratic': 'Квадратное', 'graphical': 'Графический метод' };
+    return names[type] || type;
+}
+
+const courseDataDefaults = {
+    13: {
+        title: "Задание 13: Уравнения",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 13?</h4><p>Это задание на решение уравнений повышенной сложности.</p><ul><li><strong>Тригонометрические уравнения</strong></li><li><strong>Показательные уравнения</strong></li><li><strong>Логарифмические уравнения</strong></li><li><strong>Комбинированные уравнения</strong></li></ul></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Анализ уравнения</strong><p>Определите тип уравнения.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    },
+    15: {
+        title: "Задание 15: Неравенства",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 15?</h4><p>Это задание на решение неравенств повышенной сложности.</p></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Определение ОДЗ</strong><p>Найдите область допустимых значений.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    },
+    18: {
+        title: "Задание 18: Параметры",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 18?</h4><p>Это задача с параметром.</p></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Понимание условия</strong><p>Внимательно прочитайте условие.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    }
+};
+
+function getDefaultCourseData() { return JSON.parse(JSON.stringify(courseDataDefaults)); }
+
+// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
+function showNotification(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i><span>${message}</span>`;
+    container.appendChild(notification);
+    setTimeout(() => notification.classList.add('show'), 10);
+    setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, duration);
+}
+
+function createConfetti() {
+    const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c'];
+    for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = `${Math.random() * 100}vw`;
+        confetti.style.top = '0';
+        const size = 5 + Math.random() * 10;
+        confetti.style.width = `${size}px`;
+        confetti.style.height = `${size}px`;
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        const duration = 1 + Math.random() * 2;
+        const delay = Math.random() * 0.5;
+        confetti.style.animation = `confetti-fall ${duration}s ease-out ${delay}s forwards`;
+        document.body.appendChild(confetti);
+        setTimeout(() => { if (confetti.parentNode) confetti.parentNode.removeChild(confetti); }, (duration + delay) * 1000);
     }
 }
 
@@ -2456,71 +2769,6 @@ function initMathEditor() {
     mathEditorInitialized = true;
 }
 
-// ============ ОБРАБОТКА МАТЕМАТИЧЕСКИХ ВЫРАЖЕНИЙ ============
-function processMathExpressions() {
-    document.querySelectorAll('.math-processed').forEach(el => el.classList.remove('math-processed'));
-    document.querySelectorAll('.math-formula, .formula-item, .solution-step, .examples-section, .theory-content, .algorithm-steps, .practice-task, .solution, .answer-container, .content-box').forEach(element => {
-        if (element.classList.contains('math-processed')) return;
-        let html = element.innerHTML;
-        const originalHTML = html;
-        const processNestedExpressions = (text) => {
-            let tempCounter = 0;
-            const tempMap = {};
-            const fractionPattern = /<div class="math-fraction"><sup>([^<]+)<\/sup><sub>([^<]+)<\/sub><\/div>/g;
-            text = text.replace(fractionPattern, (match, num, den) => {
-                const key = `__FRACTION_${tempCounter++}__`;
-                tempMap[key] = match;
-                return key;
-            });
-            text = text.replace(/(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])\s*\/\s*(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])/g, (match, num, den) => {
-                if (match.includes('\\frac') || match.includes('math-fraction')) return match;
-                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
-            });
-            text = text.replace(/\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
-                num = num.replace(/^\(|\)$/g, ''); den = den.replace(/^\(|\)$/g, '');
-                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
-            });
-            text = text.replace(/\(([^)]+)\)\s*\/\s*([^\(\s]+)/g, (match, num, den) => {
-                num = num.replace(/^\(|\)$/g, '');
-                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
-            });
-            text = text.replace(/([^\(\s]+)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
-                den = den.replace(/^\(|\)$/g, '');
-                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
-            });
-            text = text.replace(/\\log_\{([^}]+)\}\(([^)]+)\)/g, 'log<sub>$1</sub>($2)');
-            text = text.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, (match, num, den) => {
-                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
-            });
-            text = text.replace(/([a-zA-Zα-ωπ0-9]+)\^\(([^)]+)\)/g, (match, base, exp) => {
-                let restoredExp = exp;
-                Object.keys(tempMap).forEach(key => { if (restoredExp.includes(key)) restoredExp = restoredExp.replace(key, tempMap[key]); });
-                return `${base}<sup>${restoredExp}</sup>`;
-            });
-            text = text.replace(/([a-zA-Zα-ω0-9]+)_\(([^)]+)\)/g, (match, base, index) => {
-                let restoredIndex = index;
-                Object.keys(tempMap).forEach(key => { if (restoredIndex.includes(key)) restoredIndex = restoredIndex.replace(key, tempMap[key]); });
-                return `${base}<sub>${restoredIndex}</sub>`;
-            });
-            Object.keys(tempMap).forEach(key => { text = text.replace(key, tempMap[key]); });
-            return text;
-        };
-        html = processNestedExpressions(html);
-        html = html.replace(/(\d+)\/(\d+)/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
-        html = html.replace(/([a-zA-Z])\/([a-zA-Z])/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
-        html = html.replace(/([a-zA-Zα-ωπ0-9]+)\^(\d+|[a-zA-Z])/g, '$1<sup>$2</sup>');
-        html = html.replace(/([a-zA-Zα-ω0-9]+)_(\d+|[a-zA-Z])/g, '$1<sub>$2</sub>');
-        html = html.replace(/\\sin\(([^)]+)\)/g, 'sin($1)');
-        html = html.replace(/\\cos\(([^)]+)\)/g, 'cos($1)');
-        html = html.replace(/\\tan\(([^)]+)\)/g, 'tan($1)');
-        html = html.replace(/\\sqrt\{([^}]+)\}/g, '√$1');
-        html = html.replace(/\\lim_\{([^}]+)\}/g, 'lim<sub>$1</sub>');
-        html = html.replace(/\\sum_\{([^}]+)\}/g, '∑<sub>$1</sub>');
-        html = html.replace(/\\int_\{([^}]+)\}/g, '∫<sub>$1</sub>');
-        if (html !== originalHTML) { element.innerHTML = html; element.classList.add('math-processed'); }
-    });
-}
-
 function updateHTMLForMathEditor() {
     const mathToolbars = document.querySelectorAll('.math-toolbar');
     mathToolbars.forEach(toolbar => {
@@ -2590,1000 +2838,69 @@ function insertComplexExpressionTemplate(textareaId) {
     if (textarea) { insertAtCursor(textarea, 'a_(n)^(m+1)'); showNotification('Шаблон сложного выражения вставлен', 'success'); }
 }
 
-function addTestExamples() {
-    const testExamples = `<div class="theory-section"><h4><i class="fas fa-flask"></i> Примеры использования круглых скобок</h4>
-        <p>Теперь степени и индексы используют круглые скобки:</p>
-        <div class="formula-item">1. Простая степень: x^(2) = x²</div>
-        <div class="formula-item">2. Степень с буквой: a^(n) = aⁿ</div>
-        <div class="formula-item">3. Индекс: x_(i) = xᵢ</div>
-        <div class="formula-item">4. Дробь в степени: e^(\\frac{1}{2}) = e¹ᐟ²</div>
-        <div class="formula-item">5. Сложное выражение: f_(n)^(m+1) = fₙᵐ⁺¹</div>
-        <div class="formula-item">6. Формула квадрата суммы: (a+b)^(2) = a² + 2ab + b²</div>
-        <div class="formula-item">7. Степень в степени: (x^(2))^(3) = x⁶</div></div>`;
-    const theoryContent = document.getElementById('theory-content');
-    if (theoryContent) theoryContent.innerHTML += testExamples;
-}
-
-// ============ БАЗА ДАННЫХ КУРСА ============
-const courseData = {
-    13: {
-        title: "Задание 13: Уравнения",
-        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 13?</h4><p>Это задание на решение уравнений повышенной сложности.</p><ul><li><strong><i class="fas fa-sin"></i> Тригонометрические уравнения</strong></li><li><strong><i class="fas fa-superscript"></i> Показательные уравнения</strong></li><li><strong><i class="fas fa-log"></i> Логарифмические уравнения</strong></li><li><strong><i class="fas fa-random"></i> Комбинированные уравнения</strong></li></ul></div><div class="theory-section"><h4><i class="fas fa-book"></i> Основные формулы</h4><div class="formula-grid"><div class="formula-card"><h5><i class="fas fa-sin"></i> Тригонометрические</h5><div class="formula-item">sin²x + cos²x = 1</div><div class="formula-item">sin(2x) = 2sin x cos x</div><div class="formula-item">cos(2x) = cos²x - sin²x</div><div class="formula-item">sin x = a ⇒ x = (-1)ⁿarcsin a + πn</div><div class="formula-item">cos x = a ⇒ x = ±arccos a + 2πn</div></div></div></div></div>`,
-        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Анализ уравнения</strong><p>Определите тип уравнения: тригонометрическое, показательное, логарифмическое или комбинированное.</p></div></div><div class="step"><div class="step-number">2</div><div class="step-content"><strong>Нахождение ОДЗ</strong><p>Для логарифмических уравнений: аргумент > 0, основание > 0 и ≠ 1. Для дробей: знаменатель ≠ 0. Для корней: подкоренное выражение ≥ 0.</p></div></div><div class="step"><div class="step-number">3</div><div class="step-content"><strong>Упрощение уравнения</strong><p>Используйте формулы сокращённого умножения, тригонометрические тождества, свойства логарифмов, замену переменных.</p></div></div><div class="step"><div class="step-number">4</div><div class="step-content"><strong>Решение уравнения</strong><p>Приведите уравнение к стандартному виду и решите его известными методами.</p></div></div><div class="step"><div class="step-number">5</div><div class="step-content"><strong>Отбор корней</strong><p>Исключите корни, не входящие в ОДЗ. Для тригонометрических уравнений: запишите ответ в виде серий решений.</p></div></div><div class="step"><div class="step-number">6</div><div class="step-content"><strong>Проверка</strong><p>Подставьте найденные корни в исходное уравнение для проверки.</p></div></div></div>`,
-        examples: `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><div class="example-tabs"><button class="example-tab active" data-type="trigonometric">Тригонометрические</button><button class="example-tab" data-type="exponential">Показательные</button><button class="example-tab" data-type="logarithmic">Логарифмические</button></div><div class="examples-content"><div class="example trigonometric active"><div class="example-header"><div class="example-title">Пример 1: Тригонометрическое уравнение</div><div class="example-type"><i class="fas fa-sin"></i> Тригонометрия</div></div><p><strong>Уравнение:</strong> 2sin²x - 3sin x + 1 = 0</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: Замена переменной</strong><p>Пусть t = sin x, тогда уравнение примет вид:</p><div class="math-formula">2t² - 3t + 1 = 0</div></div><div class="solution-step"><strong>Шаг 2: Решение квадратного уравнения</strong><p>Дискриминант: D = (-3)² - 4·2·1 = 9 - 8 = 1</p><div class="math-formula">t₁ = \\frac{3 + 1}{2·2} = \\frac{4}{4} = 1</div><div class="math-formula">t₂ = \\frac{3 - 1}{2·2} = \\frac{2}{4} = \\frac{1}{2}</div></div><div class="solution-step"><strong>Шаг 3: Возвращаемся к исходной переменной</strong>1) sin x = 1 <br> x = π/2 + 2πn, n ∈ Z <br>2) sin x = 1/2 <br> x = π/6 + πn, n ∈ Z<br> x = 5π/6 + πn, n ∈ Z</div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">x = π/2 + 2πn, x = π/6 + πn, x = 5π/6 + πn, n ∈ Z</div></div></div></div><div class="example exponential"><div class="example-header"><div class="example-title">Пример 2: Показательное уравнение</div><div class="example-type"><i class="fas fa-superscript"></i> Показательное</div></div><p><strong>Уравнение:</strong> 4ˣ - 5·2ˣ + 4 = 0</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: Преобразование</strong><p>4ˣ = (2²)ˣ = (2ˣ)², пусть t = 2ˣ > 0, тогда уравнение примет вид: t² - 5t + 4 = 0</p></div><div class="solution-step"><strong>Шаг 2: Решение квадратного уравнения</strong><div class="math-formula">t₁ = 4, t₂ = 1</div></div><div class="solution-step"><strong>Шаг 3: Возвращаемся к исходной переменной</strong><p>1) 2ˣ = 4 ⇒ 2ˣ = 2² ⇒ x = 2</p><p>2) 2ˣ = 1 ⇒ 2ˣ = 2⁰ ⇒ x = 0</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">x = 0, x = 2</div></div></div></div><div class="example logarithmic"><div class="example-header"><div class="example-title">Пример 3: Логарифмическое уравнение</div><div class="example-type"><i class="fas fa-log"></i> Логарифмическое</div></div><p><strong>Уравнение:</strong> log₂(x + 3) + log₂(x - 1) = 3</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: ОДЗ</strong><p>x + 3 > 0 ⇒ x > -3, x - 1 > 0 ⇒ x > 1, пересечение: x > 1</p></div><div class="solution-step"><strong>Шаг 2: Преобразование</strong><p>log₂((x + 3)(x - 1)) = 3, (x + 3)(x - 1) = 2³ = 8</p></div><div class="solution-step"><strong>Шаг 3: Решение квадратного уравнения</strong><p>x² + 2x - 3 = 8, x² + 2x - 11 = 0, D = 4 + 44 = 48</p><p>x₁ = \\frac{-2 - \\sqrt{48}}{2} = \\frac{-2 - 4\\sqrt{3}}{2} = -1 - 2\\sqrt{3}</p><p>x₂ = \\frac{-2 + \\sqrt{48}}{2} = \\frac{-2 + 4\\sqrt{3}}{2} = -1 + 2\\sqrt{3}</p></div><div class="solution-step"><strong>Шаг 4: Отбор корней по ОДЗ</strong><p>x₁ = -1 - 2√3 ≈ -4.46 < 1 - не подходит, x₂ = -1 + 2√3 ≈ 2.46 > 1 - подходит</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">x = -1 + 2√3</div></div></div></div></div></div>`,
-        practice: []
-    },
-    15: {
-        title: "Задание 15: Неравенства",
-        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 15?</h4><p>Это задание на решение неравенств повышенной сложности. Основные типы:</p><ul><li><strong><i class="fas fa-divide"></i> Рациональные неравенства</strong></li><li><strong><i class="fas fa-superscript"></i> Показательные неравенства</strong></li><li><strong><i class="fas fa-log"></i> Логарифмические неравенства</strong></li><li><strong><i class="fas fa-square-root-alt"></i> Иррациональные неравенства</strong></li></ul></div><div class="theory-section"><h4><i class="fas fa-book"></i> Основные методы</h4><div class="formula-grid"><div class="formula-card"><h5><i class="fas fa-divide"></i> Метод интервалов</h5><div class="formula-item">1. Найти нули числителя и знаменателя</div><div class="formula-item">2. Отметить точки на числовой прямой</div><div class="formula-item">3. Определить знаки на интервалах</div><div class="formula-item">4. Выбрать нужные интервалы</div></div><div class="formula-card"><h5><i class="fas fa-superscript"></i> Показательные неравенства</h5><div class="formula-item">aˣ > aʸ ⇒ x > y (если a > 1)</div><div class="formula-item">aˣ > aʸ ⇒ x < y (если 0 < a < 1)</div></div></div></div></div>`,
-        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Определение ОДЗ</strong><p>Для дробей: знаменатель ≠ 0. Для логарифмов: аргумент > 0, основание > 0 и ≠ 1. Для корней: подкоренное выражение ≥ 0.</p></div></div><div class="step"><div class="step-number">2</div><div class="step-content"><strong>Преобразование неравенства</strong><p>Привести к стандартному виду. Перенести все слагаемые в одну сторону.</p></div></div><div class="step"><div class="step-number">3</div><div class="step-content"><strong>Нахождение нулей</strong><p>Найти точки, где выражение равно 0. Для дробей - нули числителя и знаменателя.</p></div></div><div class="step"><div class="step-number">4</div><div class="step-content"><strong>Метод интервалов</strong><p>Отметить найденные точки на числовой прямой. Определить знаки на каждом интервале.</p></div></div><div class="step"><div class="step-number">5</div><div class="step-content"><strong>Выбор интервалов</strong><p>Выбрать интервалы, соответствующие знаку неравенства. Учесть ОДЗ и строгость неравенства.</p></div></div><div class="step"><div class="step-number">6</div><div class="step-content"><strong>Запись ответа</strong><p>Записать ответ в виде объединения интервалов.</p></div></div></div>`,
-        examples: `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><div class="example-tabs"><button class="example-tab active" data-type="rational">Рациональные</button><button class="example-tab" data-type="exponential">Показательные</button></div><div class="examples-content"><div class="example rational active"><div class="example-header"><div class="example-title">Пример 1: Рациональное неравенство</div><div class="example-type"><i class="fas fa-divide"></i> Рациональное</div></div><p><b>Неравенство:</b> <span class="math-formula">\\frac{x² - 4}{x - 1} ≤ 0</span></p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: ОДЗ</strong><p>x - 1 ≠ 0 ⇒ x ≠ 1</p></div><div class="solution-step"><strong>Шаг 2: Нахождение нулей числителя</strong><p>x² - 4 = 0, (x - 2)(x + 2) = 0, x₁ = -2, x₂ = 2</p></div><div class="solution-step"><strong>Шаг 3: Метод интервалов</strong><p>Отмечаем точки: -2, 1, 2. Определяем знаки: (-∞, -2): (+), (-2, 1): (-), (1, 2): (+), (2, ∞): (+)</p></div><div class="solution-step"><strong>Шаг 4: Выбор интервалов</strong><p>Нужны интервалы, где значение ≤ 0. Точки x = -2 и x = 2 включаются, x = 1 не включается.</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">x ∈ [-2, 1) ∪ {2}</div></div></div></div><div class="example exponential"><div class="example-header"><div class="example-title">Пример 2: Показательное неравенство</div><div class="example-type"><i class="fas fa-superscript"></i> Показательное</div></div><p><strong>Неравенство:</strong> <span class="math-formula">2^{x+1} - 4^{x} ≤ 0</span></p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: Преобразование</strong><p>4ˣ = 2²ˣ, 2^{x+1} = 2·2ˣ, неравенство: 2·2ˣ - 2²ˣ ≤ 0</p></div><div class="solution-step"><strong>Шаг 2: Замена переменной</strong><p>Пусть t = 2ˣ > 0, 2t - t² ≤ 0, t² - 2t ≥ 0, t(t - 2) ≥ 0</p></div><div class="solution-step"><strong>Шаг 3: Решение неравенства</strong><p>t ≤ 0 или t ≥ 2, но t = 2ˣ > 0, поэтому только t ≥ 2</p></div><div class="solution-step"><strong>Шаг 4: Возвращаемся к x</strong><p>2ˣ ≥ 2, 2ˣ ≥ 2¹, так как основание 2 > 1, то x ≥ 1</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">x ∈ [1; +∞)</div></div></div></div></div></div>`,
-        practice: []
-    },
-    18: {
-        title: "Задание 18: Параметры",
-        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 18?</h4><h4>Задание 18 - это задача с параметром. Параметр (обычно a) - это не переменная, а неизвестное фиксированное число. Ваша цель - найти все значения этого числа, при которых выполняется заданное условие.</h4>Основных сюжетов несколько:<li><strong>Тип 1:</strong> Задачи на количество решений</li><li><strong>Тип 2:</strong> Задачи на выполнение условия для всех x</li><li><strong>Тип 3:</strong> Задачи на взаимное расположение корней</li><li><strong>Тип 4:</strong> Задачи на системы, уравнения с модулем</li></div><div class="theory-section"><h4><i class="fas fa-lightbulb"></i> Важные моменты</h4><li>ОДЗ — это первое, что выписываете</li><li>Особые (вырожденные) случаи: когда коэффициент при старшей степени равен нулю</li><li>Касание — это не пересечение</li><li>Проверка граничных значений</li><li>График — ваш главный союзник</li></div></div>`,
-        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Понимание условия</strong><p>Внимательно прочитать условие. Определить, что нужно найти. Выделить параметр и переменную.</p></div></div><div class="step"><div class="step-number">2</div><div class="step-content"><strong>Выбор метода решения</strong><p>Графический метод - для уравнений с модулями, квадратных уравнений. Аналитический метод - когда можно выразить параметр.</p></div></div><div class="step"><div class="step-number">3</div><div class="step-content"><strong>Решение для фиксированного параметра</strong><p>Рассмотреть отдельные случаи. Найти критические значения параметра.</p></div></div><div class="step"><div class="step-number">4</div><div class="step-content"><strong>Исследование всех случаев</strong><p>Для каждого интервала значений параметра решить задачу. Проверить граничные значения.</p></div></div><div class="step"><div class="step-number">5</div><div class="step-content"><strong>Проверка ответа</strong><p>Подставить найденные значения параметра. Убедиться, что условие выполняется.</p></div></div><div class="step"><div class="step-number">6</div><div class="step-content"><strong>Запись ответа</strong><p>Записать все найденные значения параметра. Указать интервалы, если они есть.</p></div></div></div>`,
-        examples: `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><div class="example-tabs"><button class="example-tab active" data-type="quadratic">Квадратные уравнения</button><button class="example-tab" data-type="graphical">Графические методы</button></div><div class="examples-content"><div class="example quadratic active"><div class="example-header"><div class="example-title">Пример 1: Квадратное уравнение с параметром</div><div class="example-type"><i class="fas fa-square"></i> Квадратное</div></div><p><strong>Задача:</strong> При каких значениях параметра a уравнение x² - 2ax + a² - 1 = 0 имеет два различных корня?</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: Условие для двух различных корней</strong><p>Квадратное уравнение имеет два различных корня, когда D > 0</p></div><div class="solution-step"><strong>Шаг 2: Вычисление дискриминанта</strong><p>D = (-2a)² - 4·1·(a² - 1) = 4a² - 4a² + 4 = 4</p></div><div class="solution-step"><strong>Шаг 3: Анализ результата</strong><p>D = 4 > 0 при любом a, уравнение всегда имеет два различных корня</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">a ∈ (-∞; +∞)</div></div></div></div><div class="example graphical"><div class="example-header"><div class="example-title">Пример 2: Графический метод</div><div class="example-type"><i class="fas fa-chart-line"></i> Графический</div></div><p><strong>Задача:</strong> При каких значениях параметра a уравнение |x| = a имеет ровно два корня?</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Решение:</h4><div class="solution-step"><strong>Шаг 1: Построение графика</strong><p>Функция y = |x| имеет вид "галочки", график проходит через точку (0, 0)</p></div><div class="solution-step"><strong>Шаг 2: Анализ пересечений</strong><p>Уравнение |x| = a означает пересечение графика y = |x| с горизонтальной прямой y = a</p></div><div class="solution-step"><strong>Шаг 3: Количество корней</strong><p>При a < 0: 0 корней, при a = 0: 1 корень, при a > 0: 2 корня</p></div><div class="solution-step"><strong>Ответ:</strong><div class="math-formula">a ∈ (0; +∞)</div></div></div></div></div></div>`,
-        practice: []
-    }
-};
-
-// ============ СИСТЕМА АВТОРИЗАЦИИ (СЕРВЕРНАЯ) ============
-class UserSystem {
-    constructor() {
-        this.currentUser = null;
-        this.loadFromLocalStorage();
-    }
-    loadFromLocalStorage() { const user = localStorage.getItem('currentUser'); if (user) this.currentUser = JSON.parse(user); }
-    saveToLocalStorage() { if (this.currentUser) localStorage.setItem('currentUser', JSON.stringify(this.currentUser)); }
-    async register(email, username, password) {
-        const result = await apiRequest('/api/register', 'POST', { email, username, password });
-        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
-        return { success: false, message: result?.message || 'Ошибка регистрации' };
-    }
-    async login(email, password) {
-        const result = await apiRequest('/api/login', 'POST', { email, password });
-        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
-        return { success: false, message: result?.message || 'Ошибка входа' };
-    }
-    logout() { this.currentUser = null; localStorage.removeItem('currentUser'); }
-}
-
-// ============ СИСТЕМА ВЫПОЛНЕННЫХ ЗАДАНИЙ (СЕРВЕРНАЯ) ============
-class TaskCompletionSystem {
-    constructor() {
-        this.completedTasks = [];
-        this.currentUser = userSystem?.currentUser || null;
-        this.init();
-    }
-    getTaskId(taskNumber, taskIndex) { return `${taskNumber}_${taskIndex}`; }
-    async loadCompletedTasksFromServer() {
-        if (!this.currentUser) return [];
-        const result = await apiRequest(`/api/completed/${encodeURIComponent(this.currentUser.email)}`);
-        this.completedTasks = result?.completed || [];
-        return this.completedTasks;
-    }
-    async markTaskAsCompleted(taskNumber, taskIndex) {
-        if (!this.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return false; }
-        const taskId = this.getTaskId(taskNumber, taskIndex);
-        const result = await apiRequest('/api/mark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
-        if (result && result.success) {
-            await this.loadCompletedTasksFromServer();
-            this.updateCompletionState(taskNumber, taskIndex);
-            this.updateStatistics();
-            showNotification('Задание отмечено как выполненное!', 'success');
-            createConfetti();
-            return true;
-        }
-        return false;
-    }
-    async unmarkTask(taskNumber, taskIndex) {
-        if (!this.currentUser) return false;
-        const taskId = this.getTaskId(taskNumber, taskIndex);
-        const result = await apiRequest('/api/unmark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
-        if (result && result.success) {
-            await this.loadCompletedTasksFromServer();
-            this.updateCompletionState(taskNumber, taskIndex);
-            this.updateStatistics();
-            showNotification('Задание снято с выполнения', 'info');
-            return true;
-        }
-        return false;
-    }
-    isTaskCompleted(taskNumber, taskIndex) {
-        if (!this.currentUser) return false;
-        const taskId = this.getTaskId(taskNumber, taskIndex);
-        return this.completedTasks.includes(taskId);
-    }
-   async getStatistics() {
-    if (!this.currentUser) return { completed: 0, totalTasks: 0, percentage: 0, level: "Новичок" };
-    
-    await this.loadCompletedTasksFromServer();
-    const completed = this.completedTasks.length;
-    
-    // АВТОМАТИЧЕСКИЙ ПОДСЧЁТ ВСЕХ ЗАДАНИЙ
-    const currentData = getCourseData();
-    let totalTasks = 0;
-    for (let taskNumber in currentData) {
-        totalTasks += currentData[taskNumber].practice.length;
-    }
-    
-    const percentage = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
-    
-    let level = "Новичок";
-    if (percentage >= 90) level = "Гений математики";
-    else if (percentage >= 80) level = "Эксперт";
-    else if (percentage >= 60) level = "Продвинутый";
-    else if (percentage >= 40) level = "Средний";
-    else if (percentage >= 20) level = "Начинающий";
-    
-    return { completed, totalTasks, percentage, level };
-}
-    saveToLocalStorage() {}
-    updateCompletionState(taskNumber, taskIndex) {
-        const markButton1 = document.getElementById('mark-completed');
-        const markButton2 = document.getElementById('mark-completed-practice');
-        const isCompleted = this.isTaskCompleted(taskNumber, taskIndex);
-        if (markButton1) {
-            if (isCompleted) { markButton1.innerHTML = '<i class="fas fa-check-circle"></i>'; markButton1.classList.add('completed'); markButton1.title = 'Задание выполнено'; }
-            else { markButton1.innerHTML = '<i class="far fa-check-circle"></i>'; markButton1.classList.remove('completed'); markButton1.title = 'Отметить как выполненное'; }
-        }
-        if (markButton2) {
-            if (isCompleted) { markButton2.innerHTML = '<i class="fas fa-check-circle"></i> Выполнено'; markButton2.classList.add('completed'); }
-            else { markButton2.innerHTML = '<i class="far fa-check-circle"></i> Отметить как выполненное'; markButton2.classList.remove('completed'); }
-        }
-        this.updateNavigationIndicators();
-    }
-    updateNavigationIndicators() {
-        if (!this.currentUser) return;
-        [13, 15, 18].forEach(taskNumber => {
-            const navLinks = document.querySelectorAll(`.nav-link[data-task="${taskNumber}"]`);
-            const hasCompletedTasks = this.completedTasks.some(taskId => taskId.startsWith(`${taskNumber}_`));
-            navLinks.forEach(link => { if (hasCompletedTasks) link.classList.add('completed'); else link.classList.remove('completed'); });
-        });
-    }
-    updateAllCompletionStates() { if (this.currentUser) this.updateNavigationIndicators(); }
-    async updateStatistics() {
-        const stats = await this.getStatistics();
-        if (document.getElementById('completed-tasks')) document.getElementById('completed-tasks').textContent = `${stats.completed}/${stats.totalTasks}`;
-        if (document.getElementById('progress-percent')) document.getElementById('progress-percent').textContent = `${stats.percentage}%`;
-        if (document.getElementById('user-level')) document.getElementById('user-level').textContent = stats.level;
-        const progressFill = document.getElementById('progress-fill');
-        if (progressFill) progressFill.style.width = `${stats.percentage}%`;
-        await this.updateSectionStatistics();
-    }
-    async updateSectionStatistics() {
-    if (!this.currentUser) return;
-    
-    await this.loadCompletedTasksFromServer();
-    const currentData = getCourseData();
-    
-    for (let taskNumber of [13, 15, 18]) {
-        const completedInSection = this.completedTasks.filter(taskId => 
-            taskId.startsWith(`${taskNumber}_`)
-        ).length;
-        
-        // Автоматически получаем количество заданий в разделе
-        const totalInSection = currentData[taskNumber]?.practice?.length || 0;
-        const percentage = totalInSection > 0 ? Math.round((completedInSection / totalInSection) * 100) : 0;
-        
-        const progressBar = document.getElementById(`progress-${taskNumber}`);
-        if (progressBar) progressBar.style.width = `${percentage}%`;
-        
-        const counter = document.getElementById(`completed-${taskNumber}`);
-        if (counter) counter.textContent = `${completedInSection}/${totalInSection}`;
-    }
-}
-    setupMarkButtons() {
-        const markButton1 = document.getElementById('mark-completed');
-        const markButton2 = document.getElementById('mark-completed-practice');
-        if (markButton1) markButton1.addEventListener('click', () => this.handleMarkButtonClick());
-        if (markButton2) markButton2.addEventListener('click', () => this.handleMarkButtonClick());
-    }
-    async handleMarkButtonClick() {
-        const taskNumber = parseInt(currentTask);
-        const taskIndex = currentTaskIndex[taskNumber];
-        if (await this.isTaskCompleted(taskNumber, taskIndex)) await this.unmarkTask(taskNumber, taskIndex);
-        else await this.markTaskAsCompleted(taskNumber, taskIndex);
-    }
-    setupCompletionFilter() {
-        document.querySelectorAll('.filter-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const filterType = button.id.replace('show-', '').replace('-tasks', '');
-                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                this.applyFilter(filterType);
+function processMathExpressions() {
+    document.querySelectorAll('.math-processed').forEach(el => el.classList.remove('math-processed'));
+    document.querySelectorAll('.math-formula, .formula-item, .solution-step, .examples-section, .theory-content, .algorithm-steps, .practice-task, .solution, .answer-container, .content-box').forEach(element => {
+        if (element.classList.contains('math-processed')) return;
+        let html = element.innerHTML;
+        const originalHTML = html;
+        const processNestedExpressions = (text) => {
+            let tempCounter = 0;
+            const tempMap = {};
+            const fractionPattern = /<div class="math-fraction"><sup>([^<]+)<\/sup><sub>([^<]+)<\/sub><\/div>/g;
+            text = text.replace(fractionPattern, (match, num, den) => {
+                const key = `__FRACTION_${tempCounter++}__`;
+                tempMap[key] = match;
+                return key;
             });
-        });
-    }
-    async applyFilter(filterType) {
-        if (!this.currentUser && filterType !== 'all') { showNotification('Сначала войдите в систему!', 'warning'); return; }
-        await this.loadCompletedTasksFromServer();
-        if (filterType === 'all') this.showAllTasks();
-        else if (filterType === 'completed') this.showCompletedTasks();
-        else if (filterType === 'incomplete') this.showIncompleteTasks();
-    }
-    showAllTasks() {
-        document.querySelectorAll('.nav-link').forEach(link => link.style.display = 'flex');
-        currentTaskIndex[currentTask] = 0;
-        showPracticeTask(currentTask);
-        updateProgress(currentTask);
-        this.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
-    }
-    async showCompletedTasks() {
-        await this.loadCompletedTasksFromServer();
-        if (this.completedTasks.length === 0) { showNotification('У вас нет выполненных заданий', 'info'); return; }
-        document.querySelectorAll('.nav-link').forEach(link => link.style.display = 'none');
-        this.completedTasks.forEach(taskId => {
-            const [taskNumber] = taskId.split('_').map(Number);
-            document.querySelectorAll(`.nav-link[data-task="${taskNumber}"]`).forEach(link => link.style.display = 'flex');
-        });
-        if (this.completedTasks.length > 0) {
-            const [taskNumber, taskIndex] = this.completedTasks[0].split('_').map(Number);
-            currentTask = taskNumber.toString();
-            currentTaskIndex[taskNumber] = taskIndex;
-            showTask(currentTask);
-        }
-    }
-    async showIncompleteTasks() {
-        await this.loadCompletedTasksFromServer();
-        document.querySelectorAll('.nav-link').forEach(link => link.style.display = 'none');
-        const currentData = getCourseData();
-        for (let taskNumber of [13, 15, 18]) {
-            let hasIncomplete = false;
-            for (let i = 0; i < currentData[taskNumber].practice.length; i++) {
-                const taskId = this.getTaskId(taskNumber, i);
-                if (!this.completedTasks.includes(taskId)) { hasIncomplete = true; break; }
-            }
-            if (hasIncomplete) document.querySelectorAll(`.nav-link[data-task="${taskNumber}"]`).forEach(link => link.style.display = 'flex');
-        }
-        for (let taskNumber of [13, 15, 18]) {
-            for (let i = 0; i < currentData[taskNumber].practice.length; i++) {
-                const taskId = this.getTaskId(taskNumber, i);
-                if (!this.completedTasks.includes(taskId)) {
-                    currentTask = taskNumber.toString();
-                    currentTaskIndex[taskNumber] = i;
-                    showTask(currentTask);
-                    return;
-                }
-            }
-        }
-    }
-    async init() {
-        await this.loadCompletedTasksFromServer();
-        this.updateAllCompletionStates();
-        this.setupMarkButtons();
-        this.setupCompletionFilter();
-        this.updateStatistics();
-    }
-}
-
-// ============ СИСТЕМА ТИПИЧНЫХ ОШИБОК ============
-class MistakesSystem {
-    constructor() {
-        this.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
-        this.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
-        this.init();
-    }
-    init() { this.renderMistakes(); this.setupEventListeners(); }
-    setupEventListeners() {
-        document.getElementById('add-text-mistake')?.addEventListener('click', () => this.addTextMistake());
-        document.getElementById('add-image-mistake')?.addEventListener('click', () => document.getElementById('image-upload').click());
-        document.getElementById('image-upload')?.addEventListener('change', (e) => { if (e.target.files[0]) this.addImageMistake(e.target.files[0]); e.target.value = ''; });
-        document.getElementById('mistakes-container')?.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-delete-mistake')) {
-                const mistakeItem = e.target.closest('.mistake-item');
-                const index = parseInt(mistakeItem.dataset.index);
-                const isShared = mistakeItem.dataset.shared === 'true';
-                this.deleteMistake(index, isShared);
-            }
-        });
-        document.getElementById('clear-mistakes-btn')?.addEventListener('click', () => this.clearAllMistakes());
-        document.getElementById('mistakes-stats-btn')?.addEventListener('click', () => this.showDetailedStats());
-    }
-    addTextMistake() {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
-        const mistake = { id: Date.now(), type: 'text', content: '', caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
-        this.userMistakes.push(mistake);
-        this.saveMistakes();
-        this.renderMistakes();
-        showNotification('Текстовая ошибка добавлена', 'info');
-    }
-    addImageMistake(file) {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const mistake = { id: Date.now(), type: 'image', content: e.target.result, caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
-            this.userMistakes.push(mistake);
-            this.saveMistakes();
-            this.renderMistakes();
-            showNotification('Ошибка с изображением добавлена', 'info');
-        };
-        reader.readAsDataURL(file);
-    }
-    deleteMistake(index, isShared) {
-        if (isShared) {
-            if (!adminSystem.isAdmin) { showNotification('Только администратор может удалять общие ошибки', 'error'); return; }
-            if (confirm('Удалить эту общую ошибку?')) { this.sharedMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Общая ошибка удалена', 'warning'); }
-        } else {
-            const mistake = this.userMistakes[index];
-            if (!mistake) return;
-            if (userSystem.currentUser && mistake.userId !== userSystem.currentUser.email) { showNotification('Вы можете удалять только свои ошибки!', 'error'); return; }
-            if (confirm('Удалить эту ошибку?')) { this.userMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Ошибка удалена', 'warning'); }
-        }
-    }
-    saveMistakes() { localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes)); localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes)); }
-    renderMistakes() {
-        const container = document.getElementById('mistakes-container');
-        if (!container) return;
-        container.innerHTML = '';
-        let filteredUserMistakes = this.userMistakes.filter(m => m.taskNumber === parseInt(currentTask));
-        let filteredSharedMistakes = this.sharedMistakes.filter(m => m.taskNumber === parseInt(currentTask));
-        const allMistakes = [...filteredSharedMistakes.map((m, i) => ({...m, isShared: true, originalIndex: i})), ...filteredUserMistakes.map((m, i) => ({...m, isShared: false, originalIndex: i}))];
-        if (allMistakes.length === 0) { container.innerHTML = `<div class="empty-mistakes"><i class="fas fa-clipboard-list"></i><p>Пока нет добавленных ошибок для этого задания. Добавьте первую!</p></div>`; return; }
-        allMistakes.forEach((mistake, index) => {
-            const template = mistake.type === 'text' ? document.getElementById('text-mistake-template')?.cloneNode(true) : document.getElementById('image-mistake-template')?.cloneNode(true);
-            if (!template) return;
-            template.classList.remove('template');
-            template.style.display = 'block';
-            template.dataset.index = mistake.originalIndex;
-            template.dataset.shared = mistake.isShared;
-            if (mistake.isShared) {
-                const header = template.querySelector('.mistake-header');
-                const sharedLabel = document.createElement('span');
-                sharedLabel.className = 'shared-label';
-                sharedLabel.innerHTML = '<i class="fas fa-users"></i> Общая ошибка';
-                sharedLabel.style.cssText = 'color: #3498db; font-size: 0.8rem; margin-left: 10px;';
-                header.insertBefore(sharedLabel, header.querySelector('.btn-delete-mistake'));
-            }
-            template.querySelector('.mistake-date').textContent = mistake.date;
-            if (mistake.type === 'text') {
-                const textarea = template.querySelector('.mistake-text');
-                textarea.value = mistake.content;
-                textarea.addEventListener('input', (e) => {
-                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].content = e.target.value;
-                    else this.userMistakes[mistake.originalIndex].content = e.target.value;
-                    this.saveMistakes();
-                });
-            } else {
-                const img = template.querySelector('.mistake-image');
-                img.src = mistake.content;
-                const caption = template.querySelector('.mistake-caption');
-                caption.value = mistake.caption;
-                caption.addEventListener('input', (e) => {
-                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].caption = e.target.value;
-                    else this.userMistakes[mistake.originalIndex].caption = e.target.value;
-                    this.saveMistakes();
-                });
-            }
-            container.appendChild(template);
-        });
-        this.renderMistakesStats(filteredUserMistakes, filteredSharedMistakes);
-    }
-    renderMistakesStats(userMistakes, sharedMistakes) {
-        const statsContainer = document.createElement('div');
-        statsContainer.className = 'mistakes-stats';
-        statsContainer.innerHTML = `<div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;"><div><i class="fas fa-user" style="color: #3498db;"></i><strong>${userMistakes.length}</strong> моих</div><div><i class="fas fa-users" style="color: #2ecc71;"></i><strong>${sharedMistakes.length}</strong> общих</div><div><i class="fas fa-tasks" style="color: #e74c3c;"></i><strong>${userMistakes.length + sharedMistakes.length}</strong> всего</div></div>`;
-        document.getElementById('mistakes-container').appendChild(statsContainer);
-    }
-    clearAllMistakes() {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return; }
-        if (this.userMistakes.length === 0) { showNotification('У вас нет ошибок для удаления', 'info'); return; }
-        if (confirm(`Вы уверены, что хотите удалить все ваши ошибки (${this.userMistakes.length} шт.)?`)) { this.userMistakes = []; this.saveMistakes(); this.renderMistakes(); showNotification(`Удалено ${this.userMistakes.length} ваших ошибок`, 'success'); }
-    }
-    getMistakesStats() {
-        return { user: { total: this.userMistakes.length, byType: { text: this.userMistakes.filter(m => m.type === 'text').length, image: this.userMistakes.filter(m => m.type === 'image').length }, byTask: this.userMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) }, shared: { total: this.sharedMistakes.length, byType: { text: this.sharedMistakes.filter(m => m.type === 'text').length, image: this.sharedMistakes.filter(m => m.type === 'image').length }, byTask: this.sharedMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) } };
-    }
-    showDetailedStats() {
-        const stats = this.getMistakesStats();
-        let statsHTML = `<div style="text-align: left; padding: 15px;"><h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-chart-pie"></i> Статистика ошибок</h4><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #3498db; margin-bottom: 8px;"><i class="fas fa-user"></i> Ваши ошибки</h5><div><strong>Всего:</strong> ${stats.user.total}</div><div><strong>Текстовые:</strong> ${stats.user.byType.text}</div><div><strong>С изображениями:</strong> ${stats.user.byType.image}</div></div><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #2ecc71; margin-bottom: 8px;"><i class="fas fa-users"></i> Общие ошибки</h5><div><strong>Всего:</strong> ${stats.shared.total}</div><div><strong>Текстовые:</strong> ${stats.shared.byType.text}</div><div><strong>С изображениями:</strong> ${stats.shared.byType.image}</div></div>`;
-        if (stats.user.total > 0 || stats.shared.total > 0) {
-            statsHTML += `<div style="margin-top: 15px; border-top: 1px solid #ecf0f1; padding-top: 10px;"><strong>Общее распределение по заданиям:</strong>`;
-            const allTasks = {};
-            for (const [task, count] of Object.entries(stats.user.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
-            for (const [task, count] of Object.entries(stats.shared.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
-            for (const [task, count] of Object.entries(allTasks)) statsHTML += `<div>${task}: ${count}</div>`;
-            statsHTML += `</div>`;
-        }
-        statsHTML += `</div>`;
-        const notification = document.createElement('div');
-        notification.className = 'notification info';
-        notification.innerHTML = statsHTML;
-        notification.style.maxWidth = '400px';
-        const container = document.getElementById('notification-container');
-        if (container) { container.appendChild(notification); setTimeout(() => notification.classList.add('show'), 10); setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, 8000); }
-    }
-}
-
-// ============ СИСТЕМА АДМИН-ПАНЕЛИ ============
-class AdminSystem {
-    constructor() {
-        this.adminPassword = "1";
-        this.isAdmin = localStorage.getItem('isAdmin') === 'true';
-        this.init();
-    }
-    init() { this.setupAdminButton(); this.setupAdminModal(); this.checkAdminStatus(); this.loadAdminData(); }
-    setupAdminButton() {
-        const adminButton = document.getElementById('admin-button');
-        const userSection = document.querySelector('.user-section');
-        if (!adminButton && userSection) { const button = document.createElement('button'); button.id = 'admin-button'; button.className = 'btn btn-outline hidden'; button.innerHTML = '<i class="fas fa-cog"></i> Админ-панель'; userSection.appendChild(button); }
-        document.getElementById('admin-button')?.addEventListener('click', () => { if (this.isAdmin) this.showAdminPanel(); else this.showAdminLogin(); });
-    }
-    setupAdminModal() {
-        const modal = document.getElementById('admin-modal');
-        if (!modal) return;
-        const closeModal = modal.querySelector('.close-modal');
-        if (closeModal) closeModal.addEventListener('click', () => { modal.style.display = 'none'; this.resetEditMode(); });
-        window.addEventListener('click', (e) => { if (e.target === modal) { modal.style.display = 'none'; this.resetEditMode(); } });
-        const adminTabs = modal.querySelectorAll('.admin-tab');
-        adminTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabName = tab.getAttribute('data-tab');
-                adminTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.remove('active'));
-                const target = document.getElementById(tabName);
-                if (target) { target.classList.add('active'); this.resetEditMode(); setTimeout(() => initMathEditor(), 100); }
+            text = text.replace(/(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])\s*\/\s*(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])/g, (match, num, den) => {
+                if (match.includes('\\frac') || match.includes('math-fraction')) return match;
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
             });
-        });
-        this.setupAdminEventListeners();
-    }
-    setupAdminEventListeners() {
-        document.getElementById('add-example-btn')?.addEventListener('click', () => this.addExample());
-        document.getElementById('add-practice-btn')?.addEventListener('click', () => this.addPracticeTask());
-        document.getElementById('save-theory-btn')?.addEventListener('click', () => this.saveTheory());
-        document.getElementById('example-task-select')?.addEventListener('change', () => this.resetEditMode());
-        document.getElementById('practice-task-select')?.addEventListener('change', () => this.resetEditMode());
-        document.getElementById('theory-task-select')?.addEventListener('change', () => this.loadTheoryEditor());
-        document.getElementById('theory-type')?.addEventListener('change', () => this.loadTheoryEditor());
-        document.getElementById('add-test-question-btn')?.addEventListener('click', () => this.addTestQuestion());
-    }
-    resetEditMode() {
-        const exampleButton = document.getElementById('add-example-btn');
-        if (exampleButton) { exampleButton.innerHTML = '<i class="fas fa-plus"></i> Добавить пример'; delete exampleButton.dataset.editTask; delete exampleButton.dataset.editIndex; }
-        const practiceButton = document.getElementById('add-practice-btn');
-        if (practiceButton) { practiceButton.innerHTML = '<i class="fas fa-plus"></i> Добавить задание'; delete practiceButton.dataset.editTask; delete practiceButton.dataset.editIndex; }
-        const testButton = document.getElementById('add-test-question-btn');
-        if (testButton) { testButton.innerHTML = '<i class="fas fa-save"></i> Добавить вопрос'; delete testButton.dataset.editIndex; }
-        ['example-title', 'example-statement', 'example-solution', 'practice-source', 'practice-question', 'practice-answer', 'test-question-text', 'test-options', 'test-correct', 'test-explanation'].forEach(id => { const field = document.getElementById(id); if (field) field.value = ''; });
-    }
-    showAdminLogin() { const password = prompt('Введите пароль для доступа к админ-панели:'); if (password === this.adminPassword) { this.isAdmin = true; localStorage.setItem('isAdmin', 'true'); document.getElementById('admin-button')?.classList.remove('hidden'); this.showAdminPanel(); showNotification('Доступ к админ-панели разрешен', 'success'); } else if (password !== null) showNotification('Неверный пароль', 'error'); }
-    showAdminPanel() { const modal = document.getElementById('admin-modal'); if (modal) { modal.style.display = 'block'; this.resetEditMode(); this.loadAdminData(); setTimeout(() => initMathEditor(), 300); } }
-    loadAdminData() { this.loadExamplesList(); this.loadPracticeList(); this.loadTheoryEditor(); this.loadTestQuestionsList(); }
-    addExample() {
-        const addButton = document.getElementById('add-example-btn');
-        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
-        const taskNumber = parseInt(document.getElementById('example-task-select').value);
-        const type = document.getElementById('example-type').value;
-        const title = document.getElementById('example-title').value;
-        const statement = document.getElementById('example-statement').value;
-        const solution = document.getElementById('example-solution').value;
-        if (!title || !statement || !solution) { showNotification('Заполните все поля', 'warning'); return; }
-        const example = { type, title, statement, solution };
-        let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
-        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); examples[editIndex] = example; showNotification(`Пример обновлен в задании ${taskNumber}!`, 'success'); }
-        else { examples.push(example); showNotification(`Пример добавлен в задание ${taskNumber}!`, 'success'); }
-        localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples));
-        this.loadExamplesList();
-        this.resetEditMode();
-        document.getElementById('example-title').value = '';
-        document.getElementById('example-statement').value = '';
-        document.getElementById('example-solution').value = '';
-        updateCurrentTask();
-    }
-    addPracticeTask() {
-        const addButton = document.getElementById('add-practice-btn');
-        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
-        const taskNumber = parseInt(document.getElementById('practice-task-select').value);
-        const source = document.getElementById('practice-source').value;
-        const difficulty = document.getElementById('practice-difficulty').value;
-        const question = document.getElementById('practice-question').value;
-        const answer = document.getElementById('practice-answer').value;
-        if (!source || !question || !answer) { showNotification('Заполните все поля', 'warning'); return; }
-        const task = { id: isEditing ? undefined : `admin_${taskNumber}_${Date.now()}`, source, difficulty, question, answer };
-        let practiceTasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
-        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); task.id = practiceTasks[editIndex]?.id || task.id; practiceTasks[editIndex] = task; showNotification(`Задание обновлено в разделе ${taskNumber}!`, 'success'); }
-        else { practiceTasks.push(task); showNotification(`Задание добавлено в раздел ${taskNumber}!`, 'success'); }
-        localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(practiceTasks));
-        this.loadPracticeList();
-        this.resetEditMode();
-        document.getElementById('practice-source').value = '';
-        document.getElementById('practice-question').value = '';
-        document.getElementById('practice-answer').value = '';
-        updateCurrentTask();
-    }
-    saveTheory() {
-        const taskNumber = parseInt(document.getElementById('theory-task-select').value);
-        const type = document.getElementById('theory-type').value;
-        const content = document.getElementById('theory-content-editor').value;
-        if (!content) { showNotification('Введите содержимое', 'warning'); return; }
-        localStorage.setItem(`admin_${type}_${taskNumber}`, content);
-        showNotification(`${type === 'theory' ? 'Теория' : 'Алгоритм'} сохранена для задания ${taskNumber}!`, 'success');
-        updateCurrentTask();
-    }
-    loadExamplesList() {
-        const listContainer = document.getElementById('existing-examples-list');
-        if (!listContainer) return;
-        let html = '';
-        for (let taskNumber of [13, 15, 18]) {
-            const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
-            if (examples.length > 0) {
-                html += `<h4>Задание ${taskNumber}</h4>`;
-                examples.forEach((example, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${example.title}</div><div class="admin-item-meta">Тип: ${example.type}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
-            }
-        }
-        if (!html) html = '<p>Пока нет добавленных примеров</p>';
-        listContainer.innerHTML = html;
-        this.setupExampleListHandlers();
-    }
-    loadPracticeList() {
-        const listContainer = document.getElementById('existing-practice-list');
-        if (!listContainer) return;
-        let html = '';
-        for (let taskNumber of [13, 15, 18]) {
-            const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
-            if (tasks.length > 0) {
-                html += `<h4>Задание ${taskNumber}</h4>`;
-                tasks.forEach((task, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${task.source}</div><div class="admin-item-meta">Сложность: ${task.difficulty}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
-            }
-        }
-        if (!html) html = '<p>Пока нет добавленных заданий</p>';
-        listContainer.innerHTML = html;
-        this.setupPracticeListHandlers();
-    }
-    loadTheoryEditor() {
-        const taskNumber = document.getElementById('theory-task-select')?.value;
-        const type = document.getElementById('theory-type')?.value;
-        const editor = document.getElementById('theory-content-editor');
-        if (!taskNumber || !type || !editor) return;
-        const savedContent = localStorage.getItem(`admin_${type}_${taskNumber}`);
-        if (savedContent) editor.value = savedContent;
-        else { const currentData = getCourseData(); const originalContent = type === 'theory' ? currentData[taskNumber]?.theory : currentData[taskNumber]?.algorithm; editor.value = originalContent || ''; }
-    }
-    setupExampleListHandlers() {
-        document.querySelectorAll('.edit-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editExample(taskNumber, index); }); });
-        document.querySelectorAll('.delete-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить этот пример?')) this.deleteExample(taskNumber, index); }); });
-    }
-    setupPracticeListHandlers() {
-        document.querySelectorAll('.edit-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editPracticeTask(taskNumber, index); }); });
-        document.querySelectorAll('.delete-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить это задание?')) this.deletePracticeTask(taskNumber, index); }); });
-    }
-    editExample(taskNumber, index) {
-        const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
-        const example = examples[index];
-        if (!example) return;
-        document.getElementById('example-task-select').value = taskNumber;
-        document.getElementById('example-type').value = example.type;
-        document.getElementById('example-title').value = example.title;
-        document.getElementById('example-statement').value = example.statement;
-        document.getElementById('example-solution').value = example.solution;
-        const addButton = document.getElementById('add-example-btn');
-        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
-        addButton.dataset.editTask = taskNumber;
-        addButton.dataset.editIndex = index;
-        document.querySelector('.admin-modal').scrollTop = 0;
-    }
-    editPracticeTask(taskNumber, index) {
-        const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
-        const task = tasks[index];
-        if (!task) return;
-        document.getElementById('practice-task-select').value = taskNumber;
-        document.getElementById('practice-source').value = task.source;
-        document.getElementById('practice-difficulty').value = task.difficulty;
-        document.getElementById('practice-question').value = task.question;
-        document.getElementById('practice-answer').value = task.answer;
-        const addButton = document.getElementById('add-practice-btn');
-        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
-        addButton.dataset.editTask = taskNumber;
-        addButton.dataset.editIndex = index;
-        document.querySelector('.admin-modal').scrollTop = 0;
-    }
-    deleteExample(taskNumber, index) { let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]'); examples.splice(index, 1); localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples)); this.loadExamplesList(); showNotification('Пример удален', 'warning'); }
-    deletePracticeTask(taskNumber, index) { let tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]'); tasks.splice(index, 1); localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(tasks)); this.loadPracticeList(); showNotification('Задание удалено', 'warning'); }
-    checkAdminStatus() { if (this.isAdmin) document.getElementById('admin-button')?.classList.remove('hidden'); }
-    loadTestQuestionsList() {
-        const container = document.getElementById('test-questions-list');
-        if (!container) return;
-        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
-        if (testQuestions.length === 0) { container.innerHTML = '<p>Пока нет вопросов. Добавьте первый вопрос!</p>'; return; }
-        let html = '';
-        testQuestions.forEach((question, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${question.text.substring(0, 60)}${question.text.length > 60 ? '...' : ''}</div><div class="admin-item-meta">Правильный ответ: ${question.correct}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-test-question" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-test-question" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
-        container.innerHTML = html;
-        container.querySelectorAll('.edit-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); this.editTestQuestion(index); }); });
-        container.querySelectorAll('.delete-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); if (confirm('Удалить этот вопрос?')) this.deleteTestQuestion(index); }); });
-    }
-    addTestQuestion() {
-        const addButton = document.getElementById('add-test-question-btn');
-        const isEditing = addButton.dataset.editIndex !== undefined;
-        const text = document.getElementById('test-question-text').value;
-        const optionsStr = document.getElementById('test-options').value;
-        const correct = document.getElementById('test-correct').value;
-        if (!text || !optionsStr || !correct) { showNotification('Заполните все поля вопроса', 'warning'); return; }
-        const options = optionsStr.split(',').map(opt => opt.trim());
-        if (options.length < 2) { showNotification('Добавьте минимум 2 варианта ответа', 'warning'); return; }
-        if (!options.includes(correct)) { showNotification('Правильный ответ должен быть среди вариантов', 'warning'); return; }
-        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
-        const newQuestion = { text, options, correct };
-        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); testQuestions[editIndex] = newQuestion; showNotification('Вопрос обновлен!', 'success'); }
-        else { testQuestions.push(newQuestion); showNotification('Вопрос добавлен в тест!', 'success'); }
-        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
-        this.loadTestQuestionsList();
-        this.resetEditMode();
-        document.getElementById('test-question-text').value = '';
-        document.getElementById('test-options').value = '';
-        document.getElementById('test-correct').value = '';
-        if (currentTask === 'test') renderTest();
-    }
-    editTestQuestion(index) {
-        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
-        const question = testQuestions[index];
-        if (!question) return;
-        document.getElementById('test-question-text').value = question.text;
-        document.getElementById('test-options').value = question.options.join(', ');
-        document.getElementById('test-correct').value = question.correct;
-        const addButton = document.getElementById('add-test-question-btn');
-        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
-        addButton.dataset.editIndex = index;
-        document.querySelector('.admin-section').scrollIntoView({ behavior: 'smooth' });
-    }
-    deleteTestQuestion(index) {
-        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
-        testQuestions.splice(index, 1);
-        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
-        this.loadTestQuestionsList();
-        showNotification('Вопрос удален', 'warning');
-        if (currentTask === 'test') renderTest();
-    }
-}
-
-// ============ ЕДИНАЯ СИСТЕМА ЭКСПОРТА/ИМПОРТА ДАННЫХ ============
-class DataExportImportSystem {
-    constructor() { this.init(); }
-    init() { this.setupEventListeners(); this.createHiddenFileInput(); }
-    setupEventListeners() {
-        document.getElementById('export-data-btn')?.addEventListener('click', () => this.exportAllData());
-        document.getElementById('import-data-btn')?.addEventListener('click', () => this.triggerImportData());
-        document.getElementById('reset-data-btn')?.addEventListener('click', () => this.resetAllData());
-    }
-    createHiddenFileInput() {
-        const importInput = document.createElement('input');
-        importInput.type = 'file';
-        importInput.id = 'import-data-file';
-        importInput.accept = '.json';
-        importInput.style.display = 'none';
-        document.body.appendChild(importInput);
-        importInput.addEventListener('change', (e) => { if (e.target.files[0]) { this.importAllData(e.target.files[0]); e.target.value = ''; } });
-    }
-    exportAllData() {
-        const exportData = {};
-        for (let taskNumber of [13, 15, 18]) {
-            const examples = localStorage.getItem(`admin_examples_${taskNumber}`);
-            const practice = localStorage.getItem(`admin_practice_${taskNumber}`);
-            const theory = localStorage.getItem(`admin_theory_${taskNumber}`);
-            const algorithm = localStorage.getItem(`admin_algorithm_${taskNumber}`);
-            if (examples) exportData[`admin_examples_${taskNumber}`] = JSON.parse(examples);
-            if (practice) exportData[`admin_practice_${taskNumber}`] = JSON.parse(practice);
-            if (theory) exportData[`admin_theory_${taskNumber}`] = theory;
-            if (algorithm) exportData[`admin_algorithm_${taskNumber}`] = algorithm;
-        }
-        const testQuestions = localStorage.getItem('testQuestions');
-        if (testQuestions) exportData.testQuestions = JSON.parse(testQuestions);
-        const users = localStorage.getItem('users');
-        const completedTasks = localStorage.getItem('completedTasks');
-        const currentUser = localStorage.getItem('currentUser');
-        const isAdmin = localStorage.getItem('isAdmin');
-        if (users) exportData.users = JSON.parse(users);
-        if (completedTasks) exportData.completedTasks = JSON.parse(completedTasks);
-        if (currentUser) exportData.currentUser = JSON.parse(currentUser);
-        if (isAdmin) exportData.isAdmin = isAdmin;
-        const userMistakes = localStorage.getItem('userMistakes');
-        const sharedMistakes = localStorage.getItem('sharedMistakes');
-        if (userMistakes) exportData.userMistakes = JSON.parse(userMistakes);
-        if (sharedMistakes) exportData.sharedMistakes = JSON.parse(sharedMistakes);
-        exportData.exportMetadata = { date: new Date().toISOString(), version: '3.0', description: 'Единый экспорт всех данных сайта (включая тесты)' };
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ege-math-all-data-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showNotification('Все данные (задания, ошибки, прогресс, тесты) экспортированы успешно!', 'success');
-    }
-    triggerImportData() { document.getElementById('import-data-file').click(); }
-    importAllData(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                let importedCount = 0;
-                for (const key in data) {
-                    if (key === 'exportMetadata') continue;
-                    if (typeof data[key] === 'object') localStorage.setItem(key, JSON.stringify(data[key]));
-                    else localStorage.setItem(key, data[key]);
-                    importedCount++;
-                }
-                if (adminSystem) { adminSystem.loadAdminData(); adminSystem.loadTestQuestionsList(); }
-                updateCurrentTask();
-                if (taskCompletionSystem) { taskCompletionSystem.completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '{}'); taskCompletionSystem.saveToLocalStorage(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); }
-                if (mistakesSystem) { mistakesSystem.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]'); mistakesSystem.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]'); mistakesSystem.renderMistakes(); }
-                if (data.isAdmin) { localStorage.setItem('isAdmin', data.isAdmin); if (adminSystem) { adminSystem.isAdmin = data.isAdmin === 'true'; adminSystem.checkAdminStatus(); } }
-                if (data.currentUser) { localStorage.setItem('currentUser', JSON.stringify(data.currentUser)); if (userSystem) { userSystem.currentUser = data.currentUser; userSystem.saveToLocalStorage(); } }
-                checkAuthStatus();
-                if (currentTask === 'test') renderTest();
-                showNotification(`Импортировано ${importedCount} записей! Все данные успешно загружены.`, 'success');
-            } catch (error) { console.error('Ошибка импорта:', error); showNotification('Ошибка при импорте файла: ' + error.message, 'error'); }
+            text = text.replace(/\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
+                num = num.replace(/^\(|\)$/g, ''); den = den.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/\(([^)]+)\)\s*\/\s*([^\(\s]+)/g, (match, num, den) => {
+                num = num.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/([^\(\s]+)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
+                den = den.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/\\log_\{([^}]+)\}\(([^)]+)\)/g, 'log<sub>$1</sub>($2)');
+            text = text.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, (match, num, den) => {
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/([a-zA-Zα-ωπ0-9]+)\^\(([^)]+)\)/g, (match, base, exp) => {
+                let restoredExp = exp;
+                Object.keys(tempMap).forEach(key => { if (restoredExp.includes(key)) restoredExp = restoredExp.replace(key, tempMap[key]); });
+                return `${base}<sup>${restoredExp}</sup>`;
+            });
+            text = text.replace(/([a-zA-Zα-ω0-9]+)_\(([^)]+)\)/g, (match, base, index) => {
+                let restoredIndex = index;
+                Object.keys(tempMap).forEach(key => { if (restoredIndex.includes(key)) restoredIndex = restoredIndex.replace(key, tempMap[key]); });
+                return `${base}<sub>${restoredIndex}</sub>`;
+            });
+            Object.keys(tempMap).forEach(key => { text = text.replace(key, tempMap[key]); });
+            return text;
         };
-        reader.readAsText(file);
-    }
-    resetAllData() {
-        if (confirm('ВНИМАНИЕ! Это удалит ВСЕ данные: добавленные задания, примеры, теорию, тесты, ваши ошибки, прогресс и пользователей. Вы уверены?')) {
-            for (let taskNumber of [13, 15, 18]) {
-                localStorage.removeItem(`admin_examples_${taskNumber}`);
-                localStorage.removeItem(`admin_practice_${taskNumber}`);
-                localStorage.removeItem(`admin_theory_${taskNumber}`);
-                localStorage.removeItem(`admin_algorithm_${taskNumber}`);
-            }
-            localStorage.removeItem('testQuestions');
-            localStorage.removeItem('users');
-            localStorage.removeItem('completedTasks');
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('isAdmin');
-            localStorage.removeItem('userMistakes');
-            localStorage.removeItem('sharedMistakes');
-            showNotification('Все данные сброшены! Страница будет перезагружена.', 'success');
-            setTimeout(() => location.reload(), 1500);
-        }
-    }
+        html = processNestedExpressions(html);
+        html = html.replace(/(\d+)\/(\d+)/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
+        html = html.replace(/([a-zA-Z])\/([a-zA-Z])/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
+        html = html.replace(/([a-zA-Zα-ωπ0-9]+)\^(\d+|[a-zA-Z])/g, '$1<sup>$2</sup>');
+        html = html.replace(/([a-zA-Zα-ω0-9]+)_(\d+|[a-zA-Z])/g, '$1<sub>$2</sub>');
+        html = html.replace(/\\sin\(([^)]+)\)/g, 'sin($1)');
+        html = html.replace(/\\cos\(([^)]+)\)/g, 'cos($1)');
+        html = html.replace(/\\tan\(([^)]+)\)/g, 'tan($1)');
+        html = html.replace(/\\sqrt\{([^}]+)\}/g, '√$1');
+        html = html.replace(/\\lim_\{([^}]+)\}/g, 'lim<sub>$1</sub>');
+        html = html.replace(/\\sum_\{([^}]+)\}/g, '∑<sub>$1</sub>');
+        html = html.replace(/\\int_\{([^}]+)\}/g, '∫<sub>$1</sub>');
+        if (html !== originalHTML) { element.innerHTML = html; element.classList.add('math-processed'); }
+    });
 }
-
-// ============ УВЕДОМЛЕНИЯ ============
-function showNotification(message, type = 'info', duration = 4000) {
-    const container = document.getElementById('notification-container');
-    if (!container) return;
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i><span>${message}</span>`;
-    container.appendChild(notification);
-    setTimeout(() => notification.classList.add('show'), 10);
-    setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, duration);
-}
-
-function createConfetti() {
-    const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c'];
-    for (let i = 0; i < 50; i++) {
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti';
-        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        confetti.style.left = `${Math.random() * 100}vw`;
-        confetti.style.top = '0';
-        const size = 5 + Math.random() * 10;
-        confetti.style.width = `${size}px`;
-        confetti.style.height = `${size}px`;
-        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-        const duration = 1 + Math.random() * 2;
-        const delay = Math.random() * 0.5;
-        confetti.style.animation = `confetti-fall ${duration}s ease-out ${delay}s forwards`;
-        document.body.appendChild(confetti);
-        setTimeout(() => { if (confetti.parentNode) confetti.parentNode.removeChild(confetti); }, (duration + delay) * 1000);
-    }
-}
-
-// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
-function getExampleIcon(type) {
-    const icons = { 'trigonometric': 'sin', 'exponential': 'superscript', 'logarithmic': 'log', 'rational': 'divide', 'inequality': 'not-equal', 'system': 'project-diagram', 'equation': 'equals', 'quadratic': 'square', 'graphical': 'chart-line' };
-    return icons[type] || 'calculator';
-}
-function getExampleTypeName(type) {
-    const names = { 'trigonometric': 'Тригонометрия', 'exponential': 'Показательное', 'logarithmic': 'Логарифмическое', 'rational': 'Рациональное', 'inequality': 'Неравенство', 'system': 'Система', 'equation': 'Уравнение', 'quadratic': 'Квадратное', 'graphical': 'Графический метод' };
-    return names[type] || type;
-}
-function getDifficultyName(difficulty) { const names = { 'easy': 'Легкое', 'medium': 'Среднее', 'hard': 'Тяжелое' }; return names[difficulty] || difficulty; }
-function getCourseData() {
-    const data = JSON.parse(JSON.stringify(courseData));
-    for (let taskNumber of [13, 15, 18]) {
-        const adminExamples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
-        if (adminExamples.length > 0) {
-            let examplesHTML = '';
-            adminExamples.forEach(example => { examplesHTML += `<div class="example ${example.type}"><div class="example-header"><div class="example-title">${example.title}</div><div class="example-type"><i class="fas fa-${getExampleIcon(example.type)}"></i> ${getExampleTypeName(example.type)}</div></div><p><strong>Пример:</strong> ${example.statement}</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Подробное решение:</h4>${example.solution}</div></div>`; });
-            if (data[taskNumber].examples.includes('<div class="examples-content">')) {
-                const endOfExamples = data[taskNumber].examples.indexOf('</div></div>');
-                if (endOfExamples !== -1) data[taskNumber].examples = data[taskNumber].examples.substring(0, endOfExamples) + examplesHTML + data[taskNumber].examples.substring(endOfExamples);
-            }
-        }
-        const adminPractice = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
-        adminPractice.forEach(task => { if (!data[taskNumber].practice.some(existingTask => existingTask.id === task.id)) { data[taskNumber].practice.push({ id: task.id, question: `<div class="practice-task"><div class="task-meta"><span class="task-source">${task.source}</span><span class="task-difficulty difficulty-${task.difficulty}"><i class="fas fa-star"></i>${getDifficultyName(task.difficulty)}</span></div>${task.question}</div>`, answer: task.answer }); } });
-        const adminTheory = localStorage.getItem(`admin_theory_${taskNumber}`);
-        if (adminTheory) data[taskNumber].theory = adminTheory;
-        const adminAlgorithm = localStorage.getItem(`admin_algorithm_${taskNumber}`);
-        if (adminAlgorithm) data[taskNumber].algorithm = adminAlgorithm;
-    }
-    return data;
-}
-
-// ============ ФУНКЦИИ ДЛЯ ИТОГОВОГО ТЕСТА ============
-let currentTestIndex = 0;
-let userTestAnswers = JSON.parse(localStorage.getItem('userTestAnswers') || '{}');
-let testCompleted = false;
-
-function renderTest() {
-    const practiceContent = document.getElementById('practice-content');
-    if (!practiceContent) return;
-    const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
-    if (testQuestions.length === 0) { practiceContent.innerHTML = `<div class="test-container"><p>Вопросы теста еще не добавлены. Администратор может добавить вопросы в админ-панели.</p></div>`; return; }
-    if (userSystem.currentUser) {
-        const userEmail = userSystem.currentUser.email;
-        if (userTestAnswers[userEmail] && userTestAnswers[userEmail].completed) {
-            testCompleted = true;
-            const score = userTestAnswers[userEmail].score || 0;
-            practiceContent.innerHTML = `<div class="test-result"><h3><i class="fas fa-trophy"></i> Тест завершен!</h3><p>Ваш результат: ${score} / ${testQuestions.length}</p><p>Процент выполнения: ${Math.round(score / testQuestions.length * 100)}%</p><button id="reset-test-btn" class="btn btn-primary">Пройти тест заново</button></div>`;
-            document.getElementById('reset-test-btn')?.addEventListener('click', () => { if (userSystem.currentUser) { userTestAnswers[userSystem.currentUser.email] = { answers: {}, score: 0, completed: false }; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = false; currentTestIndex = 0; renderTest(); } else showNotification('Войдите в аккаунт', 'warning'); });
-            return;
-        }
-    }
-    testCompleted = false;
-    const question = testQuestions[currentTestIndex];
-    const userEmail = userSystem.currentUser?.email;
-    const savedAnswer = userEmail && userTestAnswers[userEmail] ? userTestAnswers[userEmail].answers[currentTestIndex] : null;
-    const isAnswered = savedAnswer !== null && savedAnswer !== undefined;
-    const isCorrect = isAnswered && savedAnswer === question.correct;
-    let optionsHtml = '';
-    question.options.forEach((option, idx) => { const checked = savedAnswer === option ? 'checked' : ''; const disabled = isAnswered ? 'disabled' : ''; let optionStyle = ''; if (isAnswered && savedAnswer === option && isCorrect) optionStyle = 'color: #27ae60; font-weight: bold;'; else if (isAnswered && savedAnswer === option && !isCorrect) optionStyle = 'color: #e74c3c;'; else if (isAnswered) optionStyle = 'color: #95a5a6;'; optionsHtml += `<li class="test-option"><input type="radio" name="test-option" value="${option.replace(/"/g, '&quot;')}" id="opt_${idx}" ${checked} ${disabled}><label for="opt_${idx}" style="${optionStyle}">${option}</label></li>`; });
-    let feedbackHtml = '';
-    if (isAnswered) { if (isCorrect) feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 8px; color: #2e7d32;"><i class="fas fa-check-circle"></i> Верно!</div>`; else feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 8px; color: #c62828;"><i class="fas fa-times-circle"></i> Неверно.</div>`; }
-    practiceContent.innerHTML = `<div class="test-container"><div class="test-question"><div class="test-question-text">${question.text}</div><ul class="test-options">${optionsHtml}</ul>${feedbackHtml}</div><div class="test-nav"><button class="btn btn-secondary" id="test-prev" ${currentTestIndex === 0 ? 'disabled' : ''}><i class="fas fa-arrow-left"></i> Назад</button><span class="test-progress">${currentTestIndex + 1} / ${testQuestions.length}</span><button class="btn btn-primary" id="test-next">${currentTestIndex === testQuestions.length - 1 ? 'Завершить' : 'Далее'} <i class="fas fa-arrow-right"></i></button></div></div>`;
-    if (!isAnswered) { document.querySelectorAll('input[name="test-option"]').forEach(radio => { radio.addEventListener('change', (e) => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для сохранения прогресса', 'warning'); return; } const answer = e.target.value; const userEmail = userSystem.currentUser.email; if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].answers[currentTestIndex] = answer; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); renderTest(); const isAnswerCorrect = answer === question.correct; if (isAnswerCorrect) showNotification('✓ Верно!', 'success'); else showNotification('✗ Неверно', 'warning'); }); }); }
-    document.getElementById('test-prev')?.addEventListener('click', () => { if (currentTestIndex > 0) { currentTestIndex--; renderTest(); } });
-    document.getElementById('test-next')?.addEventListener('click', () => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для завершения теста', 'warning'); return; } const testQuestionsLocal = JSON.parse(localStorage.getItem('testQuestions') || '[]'); const userEmail = userSystem.currentUser.email; if (currentTestIndex === testQuestionsLocal.length - 1) { let score = 0; const userAnswers = userTestAnswers[userEmail]?.answers || {}; testQuestionsLocal.forEach((q, idx) => { if (userAnswers[idx] === q.correct) score++; }); if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].score = score; userTestAnswers[userEmail].completed = true; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = true; renderTest(); } else { currentTestIndex++; renderTest(); } });
-}
-
-// ============ ОСНОВНЫЕ ПЕРЕМЕННЫЕ ============
-let userSystem, taskCompletionSystem, mistakesSystem, adminSystem, dataExportImportSystem;
-let currentTaskIndex = {13: 0, 15: 0, 18: 0};
-let currentTask = '13';
-
-// ============ ОСНОВНЫЕ ФУНКЦИИ ============
-function initNavigation() {
-    document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', function(e) { e.preventDefault(); showTask(this.getAttribute('data-task')); }); });
-}
-function initAccordion() {
-    document.querySelectorAll('.accordion-header').forEach(header => { header.addEventListener('click', function() { const item = this.parentElement; const isActive = item.classList.contains('active'); document.querySelectorAll('.accordion-item').forEach(acc => acc.classList.remove('active')); if (!isActive) item.classList.add('active'); }); });
-}
-function initButtons() {
-    const showAnswerBtn = document.getElementById('show-answer');
-    const nextTaskBtn = document.getElementById('next-task');
-    const prevTaskBtn = document.getElementById('prev-task');
-    if (showAnswerBtn) showAnswerBtn.addEventListener('click', function() { const answerContent = document.getElementById('answer-content'); if (answerContent.classList.contains('hidden')) { answerContent.classList.remove('hidden'); answerContent.classList.add('visible'); this.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть ответ'; } else { answerContent.classList.remove('visible'); answerContent.classList.add('hidden'); this.innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; } });
-    if (nextTaskBtn) nextTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
-    if (prevTaskBtn) prevTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
-}
-function initExampleTabs() {
-    document.addEventListener('click', function(e) { if (e.target.classList.contains('example-tab')) { const tabsContainer = e.target.closest('.example-tabs'); const exampleType = e.target.getAttribute('data-type'); const examplesContent = tabsContainer.nextElementSibling; tabsContainer.querySelectorAll('.example-tab').forEach(tab => tab.classList.remove('active')); e.target.classList.add('active'); examplesContent.querySelectorAll('.example').forEach(example => example.classList.remove('active')); const targetExample = examplesContent.querySelector(`.example.${exampleType}`); if (targetExample) targetExample.classList.add('active'); } });
-}
-async function initAuthSystem() {
-    const authButton = document.getElementById('auth-button');
-    const logoutButton = document.getElementById('logout-button');
-    const modal = document.getElementById('auth-modal');
-    const closeModal = document.querySelector('.close-modal');
-    const authTabs = document.querySelectorAll('.auth-tab');
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    if (!authButton || !modal) return;
-    authButton.addEventListener('click', () => modal.style.display = 'block');
-    if (closeModal) closeModal.addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-    authTabs.forEach(tab => { tab.addEventListener('click', () => { const tabName = tab.getAttribute('data-tab'); authTabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); if (loginForm) loginForm.classList.remove('active'); if (registerForm) registerForm.classList.remove('active'); if (tabName === 'login' && loginForm) loginForm.classList.add('active'); else if (registerForm) registerForm.classList.add('active'); }); });
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const result = await userSystem.login(email, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вход выполнен успешно!', 'success'); } else showNotification(result.message, 'error'); });
-    }
-    if (registerForm) {
-        registerForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const username = document.getElementById('register-username').value; const password = document.getElementById('register-password').value; const result = await userSystem.register(email, username, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Регистрация прошла успешно!', 'success'); } else showNotification(result.message, 'error'); });
-    }
-    if (logoutButton) logoutButton.addEventListener('click', () => { userSystem.logout(); taskCompletionSystem.currentUser = null; checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вы вышли из системы', 'info'); });
-}
-function checkAuthStatus() {
-    const authButton = document.getElementById('auth-button');
-    const userInfo = document.getElementById('user-info');
-    const ratingSection = document.getElementById('rating-section');
-    const userName = document.getElementById('user-name');
-    const adminButton = document.getElementById('admin-button');
-    if (!authButton || !userInfo || !ratingSection) return;
-    if (userSystem.currentUser) {
-        authButton.classList.add('hidden');
-        userInfo.classList.remove('hidden');
-        ratingSection.classList.remove('hidden');
-        if (userName) userName.textContent = userSystem.currentUser.username;
-        if (adminButton) adminButton.classList.remove('hidden');
-    } else {
-        authButton.classList.remove('hidden');
-        userInfo.classList.add('hidden');
-        ratingSection.classList.add('hidden');
-        if (adminButton) adminButton.classList.add('hidden');
-    }
-}
-function showTask(taskNumber) {
-    if (taskNumber === 'test') {
-        currentTask = 'test';
-        document.getElementById('task-title').textContent = 'Итоговый тест';
-        document.getElementById('practice-content').innerHTML = '';
-        document.getElementById('answer-content').classList.add('hidden');
-        renderTest();
-        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-        document.querySelector(`[data-task="test"]`).classList.add('active');
-        const taskProgress = document.querySelector('.task-progress');
-        if (taskProgress) taskProgress.style.display = 'none';
-        const completionFilter = document.querySelector('.completion-filter');
-        if (completionFilter) completionFilter.style.display = 'none';
-        const accordionItems = document.querySelectorAll('.accordion-item');
-        accordionItems.forEach((item, index) => { if (index !== 4) item.style.display = 'none'; else { item.style.display = 'block'; item.classList.add('active'); } });
-        const practiceControls = document.querySelector('.practice-controls');
-        if (practiceControls) practiceControls.style.display = 'none';
-        return;
-    }
-    const taskProgress = document.querySelector('.task-progress');
-    if (taskProgress) taskProgress.style.display = 'flex';
-    const completionFilter = document.querySelector('.completion-filter');
-    if (completionFilter) completionFilter.style.display = 'flex';
-    const accordionItems = document.querySelectorAll('.accordion-item');
-    accordionItems.forEach(item => item.style.display = 'block');
-    const practiceControls = document.querySelector('.practice-controls');
-    if (practiceControls) practiceControls.style.display = 'flex';
-    const currentData = getCourseData();
-    const task = currentData[taskNumber];
-    if (!task) return;
-    currentTask = taskNumber;
-    document.getElementById('task-title').textContent = task.title;
-    document.getElementById('theory-content').innerHTML = task.theory;
-    document.getElementById('algorithm-content').innerHTML = task.algorithm;
-    document.getElementById('examples-content').innerHTML = task.examples;
-    if (currentTaskIndex[taskNumber] === undefined) currentTaskIndex[taskNumber] = 0;
-    showPracticeTask(taskNumber);
-    const answerContent = document.getElementById('answer-content');
-    if (answerContent) { answerContent.classList.add('hidden'); answerContent.classList.remove('visible'); }
-    const showAnswerBtn = document.getElementById('show-answer');
-    if (showAnswerBtn) showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-    updateProgress(taskNumber);
-    updateActiveNavLink(taskNumber);
-    if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(taskNumber), currentTaskIndex[taskNumber]);
-    if (mistakesSystem) mistakesSystem.renderMistakes();
-    initExampleTabs();
-    const trigButtonContainer = document.getElementById('trig-circle-button-container');
-    if (trigButtonContainer) trigButtonContainer.style.display = taskNumber === '13' ? 'block' : 'none';
-    const coordSection = document.getElementById('coord-plane-section');
-    if (coordSection) coordSection.style.display = taskNumber === '18' ? 'block' : 'none';
-    const intervalButtonContainer = document.getElementById('interval-constructor-button-container');
-    const intervalContainer = document.getElementById('interval-constructor-container');
-    if (intervalButtonContainer && intervalContainer) { intervalButtonContainer.style.display = taskNumber === '15' ? 'block' : 'none'; intervalContainer.style.display = 'none'; }
-    setTimeout(() => processMathExpressions(), 100);
-}
-function showPracticeTask(taskNumber) {
-    const currentData = getCourseData();
-    const task = currentData[taskNumber];
-    const index = currentTaskIndex[taskNumber] || 0;
-    const practiceContent = document.getElementById('practice-content');
-    const answerContent = document.getElementById('answer-content');
-    if (task && task.practice && task.practice.length > 0 && task.practice[index] && practiceContent) practiceContent.innerHTML = task.practice[index].question;
-    else if (practiceContent) practiceContent.innerHTML = '<p>Задания для этого раздела еще не добавлены.</p>';
-    if (task && task.practice && task.practice.length > 0 && task.practice[index] && answerContent) answerContent.innerHTML = task.practice[index].answer;
-    else if (answerContent) answerContent.innerHTML = '<p>Решение пока не доступно.</p>';
-    setTimeout(() => processMathExpressions(), 100);
-}
-function updateProgress(taskNumber) {
-    const currentData = getCourseData();
-    const task = currentData[taskNumber];
-    const current = (currentTaskIndex[taskNumber] || 0) + 1;
-    const total = task && task.practice ? task.practice.length : 0;
-    const currentTaskEl = document.getElementById('current-task');
-    const totalTasksEl = document.getElementById('total-tasks');
-    if (currentTaskEl) currentTaskEl.textContent = current;
-    if (totalTasksEl) totalTasksEl.textContent = total;
-}
-function updateCurrentTask() { if (currentTask && currentTask !== 'test') showTask(currentTask); else if (currentTask === 'test') renderTest(); if (taskCompletionSystem) taskCompletionSystem.updateStatistics(); if (mistakesSystem) mistakesSystem.renderMistakes(); }
-function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); const activeLink = document.querySelector(`[data-task="${taskNumber}"]`); if (activeLink) activeLink.classList.add('active'); }
 
 // ============ КОНСТРУКТОР МЕТОДА ИНТЕРВАЛОВ ============
 (function() {
@@ -3730,6 +3047,840 @@ function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link'
     redraw();
 })();
 
+// ============ СИСТЕМА АДМИН-ПАНЕЛИ ============
+class AdminSystem {
+    constructor() {
+        this.adminPassword = "1";
+        this.isAdmin = localStorage.getItem('isAdmin') === 'true';
+        this.init();
+    }
+    init() { this.setupAdminButton(); this.setupAdminModal(); this.checkAdminStatus(); this.loadAdminData(); }
+    setupAdminButton() {
+        const adminButton = document.getElementById('admin-button');
+        const userSection = document.querySelector('.user-section');
+        if (!adminButton && userSection) { const button = document.createElement('button'); button.id = 'admin-button'; button.className = 'btn btn-outline hidden'; button.innerHTML = '<i class="fas fa-cog"></i> Админ-панель'; userSection.appendChild(button); }
+        document.getElementById('admin-button')?.addEventListener('click', () => { if (this.isAdmin) this.showAdminPanel(); else this.showAdminLogin(); });
+    }
+    setupAdminModal() {
+        const modal = document.getElementById('admin-modal');
+        if (!modal) return;
+        const closeModal = modal.querySelector('.close-modal');
+        if (closeModal) closeModal.addEventListener('click', () => { modal.style.display = 'none'; this.resetEditMode(); });
+        window.addEventListener('click', (e) => { if (e.target === modal) { modal.style.display = 'none'; this.resetEditMode(); } });
+        const adminTabs = modal.querySelectorAll('.admin-tab');
+        adminTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                adminTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.remove('active'));
+                const target = document.getElementById(tabName);
+                if (target) { target.classList.add('active'); this.resetEditMode(); setTimeout(() => initMathEditor(), 100); }
+            });
+        });
+        this.setupAdminEventListeners();
+    }
+    setupAdminEventListeners() {
+        document.getElementById('add-example-btn')?.addEventListener('click', () => this.addExample());
+        document.getElementById('add-practice-btn')?.addEventListener('click', () => this.addPracticeTask());
+        document.getElementById('save-theory-btn')?.addEventListener('click', () => this.saveTheory());
+        document.getElementById('example-task-select')?.addEventListener('change', () => this.resetEditMode());
+        document.getElementById('practice-task-select')?.addEventListener('change', () => this.resetEditMode());
+        document.getElementById('theory-task-select')?.addEventListener('change', () => this.loadTheoryEditor());
+        document.getElementById('theory-type')?.addEventListener('change', () => this.loadTheoryEditor());
+        document.getElementById('add-test-question-btn')?.addEventListener('click', () => this.addTestQuestion());
+        document.getElementById('add-student-btn')?.addEventListener('click', () => this.addStudent());
+        document.getElementById('grant-access-btn')?.addEventListener('click', () => this.grantAccess());
+        document.getElementById('revoke-access-btn')?.addEventListener('click', () => this.revokeAccess());
+        document.getElementById('access-student-select')?.addEventListener('change', (e) => {
+            this.loadStudentTasks(e.target.value);
+        });
+    }
+    resetEditMode() {
+        const exampleButton = document.getElementById('add-example-btn');
+        if (exampleButton) { exampleButton.innerHTML = '<i class="fas fa-plus"></i> Добавить пример'; delete exampleButton.dataset.editTask; delete exampleButton.dataset.editIndex; }
+        const practiceButton = document.getElementById('add-practice-btn');
+        if (practiceButton) { practiceButton.innerHTML = '<i class="fas fa-plus"></i> Добавить задание'; delete practiceButton.dataset.editTask; delete practiceButton.dataset.editIndex; }
+        const testButton = document.getElementById('add-test-question-btn');
+        if (testButton) { testButton.innerHTML = '<i class="fas fa-save"></i> Добавить вопрос'; delete testButton.dataset.editIndex; }
+        ['example-title', 'example-statement', 'example-solution', 'practice-source', 'practice-question', 'practice-answer', 'test-question-text', 'test-options', 'test-correct', 'test-explanation', 'new-student-email', 'new-student-name', 'new-student-password'].forEach(id => { const field = document.getElementById(id); if (field) field.value = ''; });
+    }
+    showAdminLogin() { const password = prompt('Введите пароль для доступа к админ-панели:'); if (password === this.adminPassword) { this.isAdmin = true; localStorage.setItem('isAdmin', 'true'); document.getElementById('admin-button')?.classList.remove('hidden'); this.showAdminPanel(); showNotification('Доступ к админ-панели разрешен', 'success'); } else if (password !== null) showNotification('Неверный пароль', 'error'); }
+    showAdminPanel() { const modal = document.getElementById('admin-modal'); if (modal) { modal.style.display = 'block'; this.resetEditMode(); this.loadAdminData(); setTimeout(() => initMathEditor(), 300); } }
+    async loadAdminData() {
+        await this.loadExamplesList();
+        await this.loadPracticeList();
+        await this.loadTheoryEditor();
+        await this.loadTestQuestionsList();
+        if (this.isAdmin) await this.loadUsersList();
+    }
+    async loadUsersList() {
+        if (!this.isAdmin) return;
+        const result = await apiRequest(`/api/users?email=${encodeURIComponent(userSystem.currentUser.email)}`);
+        if (result && result.users) {
+            this.renderUsersList(result.users);
+            this.updateStudentSelect(result.users);
+        }
+    }
+    renderUsersList(users) {
+        const container = document.getElementById('users-list');
+        if (!container) return;
+        const currentUserRole = userSystem.currentUser.role;
+        let html = '';
+        users.forEach(user => {
+            html += `
+                <div class="admin-item">
+                    <div class="admin-item-info">
+                        <div class="admin-item-title">${user.username}</div>
+                        <div class="admin-item-meta">${user.email} • Роль: ${user.role}</div>
+                    </div>
+                    <div class="admin-item-actions">
+                        ${currentUserRole === 'owner' && user.role !== 'owner' ? `
+                            <select class="role-select" data-email="${user.email}">
+                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>Ученик</option>
+                                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Админ</option>
+                            </select>
+                            <button class="btn btn-small btn-primary save-role-btn" data-email="${user.email}">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        ` : ''}
+                        ${user.createdBy ? `<span style="font-size:0.8rem;">Добавлен: ${user.createdBy}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.save-role-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const email = btn.dataset.email;
+                const select = btn.parentElement.querySelector('.role-select');
+                const newRole = select.value;
+                const result = await apiRequest('/api/set-role', 'POST', {
+                    ownerEmail: userSystem.currentUser.email,
+                    targetEmail: email,
+                    newRole: newRole
+                });
+                if (result && result.success) {
+                    showNotification('Роль изменена!', 'success');
+                    this.loadUsersList();
+                } else {
+                    showNotification(result?.message || 'Ошибка', 'error');
+                }
+            });
+        });
+    }
+    updateStudentSelect(users) {
+        const select = document.getElementById('access-student-select');
+        if (!select) return;
+        const students = users.filter(u => u.role === 'user' && u.createdBy === userSystem.currentUser.email);
+        select.innerHTML = '<option value="">-- Выберите ученика --</option>';
+        students.forEach(student => {
+            select.innerHTML += `<option value="${student.email}">${student.username} (${student.email})</option>`;
+        });
+    }
+    async addStudent() {
+        const email = document.getElementById('new-student-email').value;
+        const name = document.getElementById('new-student-name').value;
+        const password = document.getElementById('new-student-password').value;
+        if (!email || !name || !password) {
+            showNotification('Заполните все поля', 'warning');
+            return;
+        }
+        const result = await apiRequest('/api/add-student', 'POST', {
+            teacherEmail: userSystem.currentUser.email,
+            studentEmail: email,
+            studentName: name,
+            password: password
+        });
+        if (result && result.success) {
+            showNotification(`Ученик ${name} добавлен!`, 'success');
+            document.getElementById('new-student-email').value = '';
+            document.getElementById('new-student-name').value = '';
+            document.getElementById('new-student-password').value = '';
+            await this.loadUsersList();
+        } else {
+            showNotification(result?.message || 'Ошибка', 'error');
+        }
+    }
+    async grantAccess() {
+        const studentEmail = document.getElementById('access-student-select').value;
+        const taskId = document.getElementById('access-task-select').value;
+        if (!studentEmail) {
+            showNotification('Выберите ученика', 'warning');
+            return;
+        }
+        const result = await apiRequest('/api/grant-access', 'POST', {
+            teacherEmail: userSystem.currentUser.email,
+            studentEmail: studentEmail,
+            taskId: taskId
+        });
+        if (result && result.success) {
+            showNotification('Доступ выдан!', 'success');
+            this.loadStudentTasks(studentEmail);
+        } else {
+            showNotification(result?.message || 'Ошибка', 'error');
+        }
+    }
+    async revokeAccess() {
+        const studentEmail = document.getElementById('access-student-select').value;
+        const taskId = document.getElementById('access-task-select').value;
+        if (!studentEmail) {
+            showNotification('Выберите ученика', 'warning');
+            return;
+        }
+        const result = await apiRequest('/api/revoke-access', 'POST', {
+            teacherEmail: userSystem.currentUser.email,
+            studentEmail: studentEmail,
+            taskId: taskId
+        });
+        if (result && result.success) {
+            showNotification('Доступ забран!', 'success');
+            this.loadStudentTasks(studentEmail);
+        } else {
+            showNotification(result?.message || 'Ошибка', 'error');
+        }
+    }
+    async loadStudentTasks(studentEmail) {
+        if (!studentEmail) {
+            document.getElementById('student-tasks-list').innerHTML = '<p>Выберите ученика</p>';
+            return;
+        }
+        const result = await apiRequest(`/api/my-tasks/${encodeURIComponent(studentEmail)}`);
+        const tasks = result.tasks || [];
+        const taskNames = {
+            '13_0': 'Задание 13 - Уравнения',
+            '15_0': 'Задание 15 - Неравенства',
+            '18_0': 'Задание 18 - Параметры'
+        };
+        let html = '<h4>Доступные задания ученика:</h4>';
+        tasks.forEach(taskId => {
+            html += `<div class="admin-item"><div class="admin-item-info">${taskNames[taskId] || taskId}</div></div>`;
+        });
+        if (tasks.length === 0) html += '<p>Нет выданных заданий</p>';
+        document.getElementById('student-tasks-list').innerHTML = html;
+    }
+    async addExample() {
+        const addButton = document.getElementById('add-example-btn');
+        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
+        const taskNumber = parseInt(document.getElementById('example-task-select').value);
+        const type = document.getElementById('example-type').value;
+        const title = document.getElementById('example-title').value;
+        const statement = document.getElementById('example-statement').value;
+        const solution = document.getElementById('example-solution').value;
+        if (!title || !statement || !solution) { showNotification('Заполните все поля', 'warning'); return; }
+        const example = { type, title, statement, solution };
+        let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); examples[editIndex] = example; showNotification(`Пример обновлен в задании ${taskNumber}!`, 'success'); }
+        else { examples.push(example); showNotification(`Пример добавлен в задание ${taskNumber}!`, 'success'); }
+        localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples));
+        await apiRequest('/api/save-examples', 'POST', { email: userSystem.currentUser.email, taskNumber, examples });
+        await this.loadExamplesList();
+        this.resetEditMode();
+        updateCurrentTask();
+    }
+    async addPracticeTask() {
+        const addButton = document.getElementById('add-practice-btn');
+        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
+        const taskNumber = parseInt(document.getElementById('practice-task-select').value);
+        const source = document.getElementById('practice-source').value;
+        const difficulty = document.getElementById('practice-difficulty').value;
+        const question = document.getElementById('practice-question').value;
+        const answer = document.getElementById('practice-answer').value;
+        if (!source || !question || !answer) { showNotification('Заполните все поля', 'warning'); return; }
+        const task = { id: isEditing ? undefined : `admin_${taskNumber}_${Date.now()}`, source, difficulty, question, answer };
+        let practiceTasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); task.id = practiceTasks[editIndex]?.id || task.id; practiceTasks[editIndex] = task; showNotification(`Задание обновлено в разделе ${taskNumber}!`, 'success'); }
+        else { practiceTasks.push(task); showNotification(`Задание добавлено в раздел ${taskNumber}!`, 'success'); }
+        localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(practiceTasks));
+        await apiRequest('/api/save-practice', 'POST', { email: userSystem.currentUser.email, taskNumber, practice: practiceTasks });
+        await this.loadPracticeList();
+        this.resetEditMode();
+        updateCurrentTask();
+    }
+    async saveTheory() {
+        const taskNumber = parseInt(document.getElementById('theory-task-select').value);
+        const type = document.getElementById('theory-type').value;
+        const content = document.getElementById('theory-content-editor').value;
+        if (!content) { showNotification('Введите содержимое', 'warning'); return; }
+        localStorage.setItem(`admin_${type}_${taskNumber}`, content);
+        await apiRequest('/api/save-theory', 'POST', { email: userSystem.currentUser.email, taskNumber, type, content });
+        showNotification(`${type === 'theory' ? 'Теория' : 'Алгоритм'} сохранена для задания ${taskNumber}!`, 'success');
+        updateCurrentTask();
+    }
+    async loadExamplesList() {
+        const listContainer = document.getElementById('existing-examples-list');
+        if (!listContainer) return;
+        let html = '';
+        for (let taskNumber of [13, 15, 18]) {
+            const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+            if (examples.length > 0) {
+                html += `<h4>Задание ${taskNumber}</h4>`;
+                examples.forEach((example, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${example.title}</div><div class="admin-item-meta">Тип: ${example.type}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+            }
+        }
+        if (!html) html = '<p>Пока нет добавленных примеров</p>';
+        listContainer.innerHTML = html;
+        this.setupExampleListHandlers();
+    }
+    async loadPracticeList() {
+        const listContainer = document.getElementById('existing-practice-list');
+        if (!listContainer) return;
+        let html = '';
+        for (let taskNumber of [13, 15, 18]) {
+            const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+            if (tasks.length > 0) {
+                html += `<h4>Задание ${taskNumber}</h4>`;
+                tasks.forEach((task, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${task.source}</div><div class="admin-item-meta">Сложность: ${task.difficulty}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+            }
+        }
+        if (!html) html = '<p>Пока нет добавленных заданий</p>';
+        listContainer.innerHTML = html;
+        this.setupPracticeListHandlers();
+    }
+    loadTheoryEditor() {
+        const taskNumber = document.getElementById('theory-task-select')?.value;
+        const type = document.getElementById('theory-type')?.value;
+        const editor = document.getElementById('theory-content-editor');
+        if (!taskNumber || !type || !editor) return;
+        const savedContent = localStorage.getItem(`admin_${type}_${taskNumber}`);
+        if (savedContent) editor.value = savedContent;
+        else { const currentData = getCourseData(); const originalContent = type === 'theory' ? currentData[taskNumber]?.theory : currentData[taskNumber]?.algorithm; editor.value = originalContent || ''; }
+    }
+    setupExampleListHandlers() {
+        document.querySelectorAll('.edit-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editExample(taskNumber, index); }); });
+        document.querySelectorAll('.delete-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить этот пример?')) this.deleteExample(taskNumber, index); }); });
+    }
+    setupPracticeListHandlers() {
+        document.querySelectorAll('.edit-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editPracticeTask(taskNumber, index); }); });
+        document.querySelectorAll('.delete-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить это задание?')) this.deletePracticeTask(taskNumber, index); }); });
+    }
+    editExample(taskNumber, index) {
+        const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+        const example = examples[index];
+        if (!example) return;
+        document.getElementById('example-task-select').value = taskNumber;
+        document.getElementById('example-type').value = example.type;
+        document.getElementById('example-title').value = example.title;
+        document.getElementById('example-statement').value = example.statement;
+        document.getElementById('example-solution').value = example.solution;
+        const addButton = document.getElementById('add-example-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editTask = taskNumber;
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-modal').scrollTop = 0;
+    }
+    editPracticeTask(taskNumber, index) {
+        const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+        const task = tasks[index];
+        if (!task) return;
+        document.getElementById('practice-task-select').value = taskNumber;
+        document.getElementById('practice-source').value = task.source;
+        document.getElementById('practice-difficulty').value = task.difficulty;
+        document.getElementById('practice-question').value = task.question;
+        document.getElementById('practice-answer').value = task.answer;
+        const addButton = document.getElementById('add-practice-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editTask = taskNumber;
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-modal').scrollTop = 0;
+    }
+    async deleteExample(taskNumber, index) {
+        let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+        examples.splice(index, 1);
+        localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples));
+        await apiRequest('/api/save-examples', 'POST', { email: userSystem.currentUser.email, taskNumber, examples });
+        await this.loadExamplesList();
+        showNotification('Пример удален', 'warning');
+        updateCurrentTask();
+    }
+    async deletePracticeTask(taskNumber, index) {
+        let tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+        tasks.splice(index, 1);
+        localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(tasks));
+        await apiRequest('/api/save-practice', 'POST', { email: userSystem.currentUser.email, taskNumber, practice: tasks });
+        await this.loadPracticeList();
+        showNotification('Задание удалено', 'warning');
+        updateCurrentTask();
+    }
+    checkAdminStatus() { if (this.isAdmin) document.getElementById('admin-button')?.classList.remove('hidden'); }
+    async loadTestQuestionsList() {
+        const container = document.getElementById('test-questions-list');
+        if (!container) return;
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        if (testQuestions.length === 0) { container.innerHTML = '<p>Пока нет вопросов. Добавьте первый вопрос!</p>'; return; }
+        let html = '';
+        testQuestions.forEach((question, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${question.text.substring(0, 60)}${question.text.length > 60 ? '...' : ''}</div><div class="admin-item-meta">Правильный ответ: ${question.correct}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-test-question" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-test-question" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+        container.innerHTML = html;
+        container.querySelectorAll('.edit-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); this.editTestQuestion(index); }); });
+        container.querySelectorAll('.delete-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); if (confirm('Удалить этот вопрос?')) this.deleteTestQuestion(index); }); });
+    }
+    async addTestQuestion() {
+        const addButton = document.getElementById('add-test-question-btn');
+        const isEditing = addButton.dataset.editIndex !== undefined;
+        const text = document.getElementById('test-question-text').value;
+        const optionsStr = document.getElementById('test-options').value;
+        const correct = document.getElementById('test-correct').value;
+        if (!text || !optionsStr || !correct) { showNotification('Заполните все поля вопроса', 'warning'); return; }
+        const options = optionsStr.split(',').map(opt => opt.trim());
+        if (options.length < 2) { showNotification('Добавьте минимум 2 варианта ответа', 'warning'); return; }
+        if (!options.includes(correct)) { showNotification('Правильный ответ должен быть среди вариантов', 'warning'); return; }
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        const newQuestion = { text, options, correct };
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); testQuestions[editIndex] = newQuestion; showNotification('Вопрос обновлен!', 'success'); }
+        else { testQuestions.push(newQuestion); showNotification('Вопрос добавлен в тест!', 'success'); }
+        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
+        await apiRequest('/api/save-test-questions', 'POST', { email: userSystem.currentUser.email, questions: testQuestions });
+        await this.loadTestQuestionsList();
+        this.resetEditMode();
+        if (currentTask === 'test') renderTest();
+    }
+    editTestQuestion(index) {
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        const question = testQuestions[index];
+        if (!question) return;
+        document.getElementById('test-question-text').value = question.text;
+        document.getElementById('test-options').value = question.options.join(', ');
+        document.getElementById('test-correct').value = question.correct;
+        const addButton = document.getElementById('add-test-question-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-section').scrollIntoView({ behavior: 'smooth' });
+    }
+    async deleteTestQuestion(index) {
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        testQuestions.splice(index, 1);
+        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
+        await apiRequest('/api/save-test-questions', 'POST', { email: userSystem.currentUser.email, questions: testQuestions });
+        await this.loadTestQuestionsList();
+        showNotification('Вопрос удален', 'warning');
+        if (currentTask === 'test') renderTest();
+    }
+}
+
+// ============ СИСТЕМА ТИПИЧНЫХ ОШИБОК ============
+class MistakesSystem {
+    constructor() {
+        this.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
+        this.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
+        this.init();
+    }
+    init() { this.renderMistakes(); this.setupEventListeners(); }
+    setupEventListeners() {
+        document.getElementById('add-text-mistake')?.addEventListener('click', () => this.addTextMistake());
+        document.getElementById('add-image-mistake')?.addEventListener('click', () => document.getElementById('image-upload').click());
+        document.getElementById('image-upload')?.addEventListener('change', (e) => { if (e.target.files[0]) this.addImageMistake(e.target.files[0]); e.target.value = ''; });
+        document.getElementById('mistakes-container')?.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-delete-mistake')) {
+                const mistakeItem = e.target.closest('.mistake-item');
+                const index = parseInt(mistakeItem.dataset.index);
+                const isShared = mistakeItem.dataset.shared === 'true';
+                this.deleteMistake(index, isShared);
+            }
+        });
+        document.getElementById('clear-mistakes-btn')?.addEventListener('click', () => this.clearAllMistakes());
+        document.getElementById('mistakes-stats-btn')?.addEventListener('click', () => this.showDetailedStats());
+    }
+    addTextMistake() {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
+        const mistake = { id: Date.now(), type: 'text', content: '', caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+        this.userMistakes.push(mistake);
+        this.saveMistakes();
+        this.renderMistakes();
+        showNotification('Текстовая ошибка добавлена', 'info');
+    }
+    addImageMistake(file) {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const mistake = { id: Date.now(), type: 'image', content: e.target.result, caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+            this.userMistakes.push(mistake);
+            this.saveMistakes();
+            this.renderMistakes();
+            showNotification('Ошибка с изображением добавлена', 'info');
+        };
+        reader.readAsDataURL(file);
+    }
+    deleteMistake(index, isShared) {
+        if (isShared) {
+            if (!adminSystem.isAdmin) { showNotification('Только администратор может удалять общие ошибки', 'error'); return; }
+            if (confirm('Удалить эту общую ошибку?')) { this.sharedMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Общая ошибка удалена', 'warning'); }
+        } else {
+            const mistake = this.userMistakes[index];
+            if (!mistake) return;
+            if (userSystem.currentUser && mistake.userId !== userSystem.currentUser.email) { showNotification('Вы можете удалять только свои ошибки!', 'error'); return; }
+            if (confirm('Удалить эту ошибку?')) { this.userMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Ошибка удалена', 'warning'); }
+        }
+    }
+    saveMistakes() { localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes)); localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes)); }
+    renderMistakes() {
+        const container = document.getElementById('mistakes-container');
+        if (!container) return;
+        container.innerHTML = '';
+        let filteredUserMistakes = this.userMistakes.filter(m => m.taskNumber === parseInt(currentTask));
+        let filteredSharedMistakes = this.sharedMistakes.filter(m => m.taskNumber === parseInt(currentTask));
+        const allMistakes = [...filteredSharedMistakes.map((m, i) => ({...m, isShared: true, originalIndex: i})), ...filteredUserMistakes.map((m, i) => ({...m, isShared: false, originalIndex: i}))];
+        if (allMistakes.length === 0) { container.innerHTML = `<div class="empty-mistakes"><i class="fas fa-clipboard-list"></i><p>Пока нет добавленных ошибок для этого задания. Добавьте первую!</p></div>`; return; }
+        allMistakes.forEach((mistake, index) => {
+            const template = mistake.type === 'text' ? document.getElementById('text-mistake-template')?.cloneNode(true) : document.getElementById('image-mistake-template')?.cloneNode(true);
+            if (!template) return;
+            template.classList.remove('template');
+            template.style.display = 'block';
+            template.dataset.index = mistake.originalIndex;
+            template.dataset.shared = mistake.isShared;
+            if (mistake.isShared) {
+                const header = template.querySelector('.mistake-header');
+                const sharedLabel = document.createElement('span');
+                sharedLabel.className = 'shared-label';
+                sharedLabel.innerHTML = '<i class="fas fa-users"></i> Общая ошибка';
+                sharedLabel.style.cssText = 'color: #3498db; font-size: 0.8rem; margin-left: 10px;';
+                header.insertBefore(sharedLabel, header.querySelector('.btn-delete-mistake'));
+            }
+            template.querySelector('.mistake-date').textContent = mistake.date;
+            if (mistake.type === 'text') {
+                const textarea = template.querySelector('.mistake-text');
+                textarea.value = mistake.content;
+                textarea.addEventListener('input', (e) => {
+                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].content = e.target.value;
+                    else this.userMistakes[mistake.originalIndex].content = e.target.value;
+                    this.saveMistakes();
+                });
+            } else {
+                const img = template.querySelector('.mistake-image');
+                img.src = mistake.content;
+                const caption = template.querySelector('.mistake-caption');
+                caption.value = mistake.caption;
+                caption.addEventListener('input', (e) => {
+                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].caption = e.target.value;
+                    else this.userMistakes[mistake.originalIndex].caption = e.target.value;
+                    this.saveMistakes();
+                });
+            }
+            container.appendChild(template);
+        });
+        this.renderMistakesStats(filteredUserMistakes, filteredSharedMistakes);
+    }
+    renderMistakesStats(userMistakes, sharedMistakes) {
+        const statsContainer = document.createElement('div');
+        statsContainer.className = 'mistakes-stats';
+        statsContainer.innerHTML = `<div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;"><div><i class="fas fa-user" style="color: #3498db;"></i><strong>${userMistakes.length}</strong> моих</div><div><i class="fas fa-users" style="color: #2ecc71;"></i><strong>${sharedMistakes.length}</strong> общих</div><div><i class="fas fa-tasks" style="color: #e74c3c;"></i><strong>${userMistakes.length + sharedMistakes.length}</strong> всего</div></div>`;
+        document.getElementById('mistakes-container').appendChild(statsContainer);
+    }
+    clearAllMistakes() {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return; }
+        if (this.userMistakes.length === 0) { showNotification('У вас нет ошибок для удаления', 'info'); return; }
+        if (confirm(`Вы уверены, что хотите удалить все ваши ошибки (${this.userMistakes.length} шт.)?`)) { this.userMistakes = []; this.saveMistakes(); this.renderMistakes(); showNotification(`Удалено ${this.userMistakes.length} ваших ошибок`, 'success'); }
+    }
+    getMistakesStats() {
+        return { user: { total: this.userMistakes.length, byType: { text: this.userMistakes.filter(m => m.type === 'text').length, image: this.userMistakes.filter(m => m.type === 'image').length }, byTask: this.userMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) }, shared: { total: this.sharedMistakes.length, byType: { text: this.sharedMistakes.filter(m => m.type === 'text').length, image: this.sharedMistakes.filter(m => m.type === 'image').length }, byTask: this.sharedMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) } };
+    }
+    showDetailedStats() {
+        const stats = this.getMistakesStats();
+        let statsHTML = `<div style="text-align: left; padding: 15px;"><h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-chart-pie"></i> Статистика ошибок</h4><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #3498db; margin-bottom: 8px;"><i class="fas fa-user"></i> Ваши ошибки</h5><div><strong>Всего:</strong> ${stats.user.total}</div><div><strong>Текстовые:</strong> ${stats.user.byType.text}</div><div><strong>С изображениями:</strong> ${stats.user.byType.image}</div></div><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #2ecc71; margin-bottom: 8px;"><i class="fas fa-users"></i> Общие ошибки</h5><div><strong>Всего:</strong> ${stats.shared.total}</div><div><strong>Текстовые:</strong> ${stats.shared.byType.text}</div><div><strong>С изображениями:</strong> ${stats.shared.byType.image}</div></div>`;
+        if (stats.user.total > 0 || stats.shared.total > 0) {
+            statsHTML += `<div style="margin-top: 15px; border-top: 1px solid #ecf0f1; padding-top: 10px;"><strong>Общее распределение по заданиям:</strong>`;
+            const allTasks = {};
+            for (const [task, count] of Object.entries(stats.user.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
+            for (const [task, count] of Object.entries(stats.shared.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
+            for (const [task, count] of Object.entries(allTasks)) statsHTML += `<div>${task}: ${count}</div>`;
+            statsHTML += `</div>`;
+        }
+        statsHTML += `</div>`;
+        const notification = document.createElement('div');
+        notification.className = 'notification info';
+        notification.innerHTML = statsHTML;
+        notification.style.maxWidth = '400px';
+        const container = document.getElementById('notification-container');
+        if (container) { container.appendChild(notification); setTimeout(() => notification.classList.add('show'), 10); setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, 8000); }
+    }
+}
+
+// ============ ЕДИНАЯ СИСТЕМА ЭКСПОРТА/ИМПОРТА ДАННЫХ ============
+class DataExportImportSystem {
+    constructor() { this.init(); }
+    init() { this.setupEventListeners(); this.createHiddenFileInput(); }
+    setupEventListeners() {
+        document.getElementById('export-data-btn')?.addEventListener('click', () => this.exportAllData());
+        document.getElementById('import-data-btn')?.addEventListener('click', () => this.triggerImportData());
+        document.getElementById('reset-data-btn')?.addEventListener('click', () => this.resetAllData());
+    }
+    createHiddenFileInput() {
+        const importInput = document.createElement('input');
+        importInput.type = 'file';
+        importInput.id = 'import-data-file';
+        importInput.accept = '.json';
+        importInput.style.display = 'none';
+        document.body.appendChild(importInput);
+        importInput.addEventListener('change', (e) => { if (e.target.files[0]) { this.importAllData(e.target.files[0]); e.target.value = ''; } });
+    }
+    exportAllData() {
+        const exportData = {};
+        for (let taskNumber of [13, 15, 18]) {
+            const examples = localStorage.getItem(`admin_examples_${taskNumber}`);
+            const practice = localStorage.getItem(`admin_practice_${taskNumber}`);
+            const theory = localStorage.getItem(`admin_theory_${taskNumber}`);
+            const algorithm = localStorage.getItem(`admin_algorithm_${taskNumber}`);
+            if (examples) exportData[`admin_examples_${taskNumber}`] = JSON.parse(examples);
+            if (practice) exportData[`admin_practice_${taskNumber}`] = JSON.parse(practice);
+            if (theory) exportData[`admin_theory_${taskNumber}`] = theory;
+            if (algorithm) exportData[`admin_algorithm_${taskNumber}`] = algorithm;
+        }
+        const testQuestions = localStorage.getItem('testQuestions');
+        if (testQuestions) exportData.testQuestions = JSON.parse(testQuestions);
+        const users = localStorage.getItem('users');
+        const completedTasks = localStorage.getItem('completedTasks');
+        const currentUser = localStorage.getItem('currentUser');
+        const isAdmin = localStorage.getItem('isAdmin');
+        if (users) exportData.users = JSON.parse(users);
+        if (completedTasks) exportData.completedTasks = JSON.parse(completedTasks);
+        if (currentUser) exportData.currentUser = JSON.parse(currentUser);
+        if (isAdmin) exportData.isAdmin = isAdmin;
+        const userMistakes = localStorage.getItem('userMistakes');
+        const sharedMistakes = localStorage.getItem('sharedMistakes');
+        if (userMistakes) exportData.userMistakes = JSON.parse(userMistakes);
+        if (sharedMistakes) exportData.sharedMistakes = JSON.parse(sharedMistakes);
+        exportData.exportMetadata = { date: new Date().toISOString(), version: '3.0', description: 'Единый экспорт всех данных сайта (включая тесты)' };
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ege-math-all-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification('Все данные (задания, ошибки, прогресс, тесты) экспортированы успешно!', 'success');
+    }
+    triggerImportData() { document.getElementById('import-data-file').click(); }
+    importAllData(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                let importedCount = 0;
+                for (const key in data) {
+                    if (key === 'exportMetadata') continue;
+                    if (typeof data[key] === 'object') localStorage.setItem(key, JSON.stringify(data[key]));
+                    else localStorage.setItem(key, data[key]);
+                    importedCount++;
+                }
+                if (adminSystem) { adminSystem.loadAdminData(); adminSystem.loadTestQuestionsList(); }
+                updateCurrentTask();
+                if (taskCompletionSystem) { taskCompletionSystem.completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '{}'); taskCompletionSystem.saveToLocalStorage(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); }
+                if (mistakesSystem) { mistakesSystem.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]'); mistakesSystem.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]'); mistakesSystem.renderMistakes(); }
+                if (data.isAdmin) { localStorage.setItem('isAdmin', data.isAdmin); if (adminSystem) { adminSystem.isAdmin = data.isAdmin === 'true'; adminSystem.checkAdminStatus(); } }
+                if (data.currentUser) { localStorage.setItem('currentUser', JSON.stringify(data.currentUser)); if (userSystem) { userSystem.currentUser = data.currentUser; userSystem.saveToLocalStorage(); } }
+                checkAuthStatus();
+                if (currentTask === 'test') renderTest();
+                showNotification(`Импортировано ${importedCount} записей! Все данные успешно загружены.`, 'success');
+            } catch (error) { console.error('Ошибка импорта:', error); showNotification('Ошибка при импорте файла: ' + error.message, 'error'); }
+        };
+        reader.readAsText(file);
+    }
+    resetAllData() {
+        if (confirm('ВНИМАНИЕ! Это удалит ВСЕ данные: добавленные задания, примеры, теорию, тесты, ваши ошибки, прогресс и пользователей. Вы уверены?')) {
+            for (let taskNumber of [13, 15, 18]) {
+                localStorage.removeItem(`admin_examples_${taskNumber}`);
+                localStorage.removeItem(`admin_practice_${taskNumber}`);
+                localStorage.removeItem(`admin_theory_${taskNumber}`);
+                localStorage.removeItem(`admin_algorithm_${taskNumber}`);
+            }
+            localStorage.removeItem('testQuestions');
+            localStorage.removeItem('users');
+            localStorage.removeItem('completedTasks');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userMistakes');
+            localStorage.removeItem('sharedMistakes');
+            showNotification('Все данные сброшены! Страница будет перезагружена.', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    }
+}
+
+// ============ ФУНКЦИИ ДЛЯ ИТОГОВОГО ТЕСТА ============
+let currentTestIndex = 0;
+let userTestAnswers = JSON.parse(localStorage.getItem('userTestAnswers') || '{}');
+let testCompleted = false;
+
+function renderTest() {
+    const practiceContent = document.getElementById('practice-content');
+    if (!practiceContent) return;
+    const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+    if (testQuestions.length === 0) { practiceContent.innerHTML = `<div class="test-container"><p>Вопросы теста еще не добавлены. Администратор может добавить вопросы в админ-панели.</p></div>`; return; }
+    if (userSystem.currentUser) {
+        const userEmail = userSystem.currentUser.email;
+        if (userTestAnswers[userEmail] && userTestAnswers[userEmail].completed) {
+            testCompleted = true;
+            const score = userTestAnswers[userEmail].score || 0;
+            practiceContent.innerHTML = `<div class="test-result"><h3><i class="fas fa-trophy"></i> Тест завершен!</h3><p>Ваш результат: ${score} / ${testQuestions.length}</p><p>Процент выполнения: ${Math.round(score / testQuestions.length * 100)}%</p><button id="reset-test-btn" class="btn btn-primary">Пройти тест заново</button></div>`;
+            document.getElementById('reset-test-btn')?.addEventListener('click', () => { if (userSystem.currentUser) { userTestAnswers[userSystem.currentUser.email] = { answers: {}, score: 0, completed: false }; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = false; currentTestIndex = 0; renderTest(); } else showNotification('Войдите в аккаунт', 'warning'); });
+            return;
+        }
+    }
+    testCompleted = false;
+    const question = testQuestions[currentTestIndex];
+    const userEmail = userSystem.currentUser?.email;
+    const savedAnswer = userEmail && userTestAnswers[userEmail] ? userTestAnswers[userEmail].answers[currentTestIndex] : null;
+    const isAnswered = savedAnswer !== null && savedAnswer !== undefined;
+    const isCorrect = isAnswered && savedAnswer === question.correct;
+    let optionsHtml = '';
+    question.options.forEach((option, idx) => { const checked = savedAnswer === option ? 'checked' : ''; const disabled = isAnswered ? 'disabled' : ''; let optionStyle = ''; if (isAnswered && savedAnswer === option && isCorrect) optionStyle = 'color: #27ae60; font-weight: bold;'; else if (isAnswered && savedAnswer === option && !isCorrect) optionStyle = 'color: #e74c3c;'; else if (isAnswered) optionStyle = 'color: #95a5a6;'; optionsHtml += `<li class="test-option"><input type="radio" name="test-option" value="${option.replace(/"/g, '&quot;')}" id="opt_${idx}" ${checked} ${disabled}><label for="opt_${idx}" style="${optionStyle}">${option}</label></li>`; });
+    let feedbackHtml = '';
+    if (isAnswered) { if (isCorrect) feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 8px; color: #2e7d32;"><i class="fas fa-check-circle"></i> Верно!</div>`; else feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 8px; color: #c62828;"><i class="fas fa-times-circle"></i> Неверно.</div>`; }
+    practiceContent.innerHTML = `<div class="test-container"><div class="test-question"><div class="test-question-text">${question.text}</div><ul class="test-options">${optionsHtml}</ul>${feedbackHtml}</div><div class="test-nav"><button class="btn btn-secondary" id="test-prev" ${currentTestIndex === 0 ? 'disabled' : ''}><i class="fas fa-arrow-left"></i> Назад</button><span class="test-progress">${currentTestIndex + 1} / ${testQuestions.length}</span><button class="btn btn-primary" id="test-next">${currentTestIndex === testQuestions.length - 1 ? 'Завершить' : 'Далее'} <i class="fas fa-arrow-right"></i></button></div></div>`;
+    if (!isAnswered) { document.querySelectorAll('input[name="test-option"]').forEach(radio => { radio.addEventListener('change', (e) => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для сохранения прогресса', 'warning'); return; } const answer = e.target.value; const userEmail = userSystem.currentUser.email; if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].answers[currentTestIndex] = answer; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); renderTest(); const isAnswerCorrect = answer === question.correct; if (isAnswerCorrect) showNotification('✓ Верно!', 'success'); else showNotification('✗ Неверно', 'warning'); }); }); }
+    document.getElementById('test-prev')?.addEventListener('click', () => { if (currentTestIndex > 0) { currentTestIndex--; renderTest(); } });
+    document.getElementById('test-next')?.addEventListener('click', () => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для завершения теста', 'warning'); return; } const testQuestionsLocal = JSON.parse(localStorage.getItem('testQuestions') || '[]'); const userEmail = userSystem.currentUser.email; if (currentTestIndex === testQuestionsLocal.length - 1) { let score = 0; const userAnswers = userTestAnswers[userEmail]?.answers || {}; testQuestionsLocal.forEach((q, idx) => { if (userAnswers[idx] === q.correct) score++; }); if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].score = score; userTestAnswers[userEmail].completed = true; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = true; renderTest(); } else { currentTestIndex++; renderTest(); } });
+}
+
+// ============ ОСНОВНЫЕ ПЕРЕМЕННЫЕ ============
+let userSystem, taskCompletionSystem, mistakesSystem, adminSystem, dataExportImportSystem;
+let currentTaskIndex = {13: 0, 15: 0, 18: 0};
+let currentTask = '13';
+
+// ============ ОСНОВНЫЕ ФУНКЦИИ ============
+function initNavigation() {
+    document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', function(e) { e.preventDefault(); showTask(this.getAttribute('data-task')); }); });
+}
+function initAccordion() {
+    document.querySelectorAll('.accordion-header').forEach(header => { header.addEventListener('click', function() { const item = this.parentElement; const isActive = item.classList.contains('active'); document.querySelectorAll('.accordion-item').forEach(acc => acc.classList.remove('active')); if (!isActive) item.classList.add('active'); }); });
+}
+function initButtons() {
+    const showAnswerBtn = document.getElementById('show-answer');
+    const nextTaskBtn = document.getElementById('next-task');
+    const prevTaskBtn = document.getElementById('prev-task');
+    if (showAnswerBtn) showAnswerBtn.addEventListener('click', function() { const answerContent = document.getElementById('answer-content'); if (answerContent.classList.contains('hidden')) { answerContent.classList.remove('hidden'); answerContent.classList.add('visible'); this.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть ответ'; } else { answerContent.classList.remove('visible'); answerContent.classList.add('hidden'); this.innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; } });
+    if (nextTaskBtn) nextTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
+    if (prevTaskBtn) prevTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
+}
+function initExampleTabs() {
+    document.addEventListener('click', function(e) { if (e.target.classList.contains('example-tab')) { const tabsContainer = e.target.closest('.example-tabs'); const exampleType = e.target.getAttribute('data-type'); const examplesContent = tabsContainer.nextElementSibling; tabsContainer.querySelectorAll('.example-tab').forEach(tab => tab.classList.remove('active')); e.target.classList.add('active'); examplesContent.querySelectorAll('.example').forEach(example => example.classList.remove('active')); const targetExample = examplesContent.querySelector(`.example.${exampleType}`); if (targetExample) targetExample.classList.add('active'); } });
+}
+async function initAuthSystem() {
+    const authButton = document.getElementById('auth-button');
+    const logoutButton = document.getElementById('logout-button');
+    const modal = document.getElementById('auth-modal');
+    const closeModal = document.querySelector('.close-modal');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    if (!authButton || !modal) return;
+    authButton.addEventListener('click', () => modal.style.display = 'block');
+    if (closeModal) closeModal.addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+    authTabs.forEach(tab => { tab.addEventListener('click', () => { const tabName = tab.getAttribute('data-tab'); authTabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); if (loginForm) loginForm.classList.remove('active'); if (registerForm) registerForm.classList.remove('active'); if (tabName === 'login' && loginForm) loginForm.classList.add('active'); else if (registerForm) registerForm.classList.add('active'); }); });
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const result = await userSystem.login(email, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вход выполнен успешно!', 'success'); } else showNotification(result.message, 'error'); });
+    }
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const username = document.getElementById('register-username').value; const password = document.getElementById('register-password').value; const result = await userSystem.register(email, username, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Регистрация прошла успешно!', 'success'); } else showNotification(result.message, 'error'); });
+    }
+    if (logoutButton) logoutButton.addEventListener('click', () => { userSystem.logout(); taskCompletionSystem.currentUser = null; checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вы вышли из системы', 'info'); });
+}
+function checkAuthStatus() {
+    const authButton = document.getElementById('auth-button');
+    const userInfo = document.getElementById('user-info');
+    const ratingSection = document.getElementById('rating-section');
+    const userName = document.getElementById('user-name');
+    const adminButton = document.getElementById('admin-button');
+    if (!authButton || !userInfo || !ratingSection) return;
+    if (userSystem.currentUser) {
+        authButton.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        ratingSection.classList.remove('hidden');
+        if (userName) userName.textContent = userSystem.currentUser.username;
+        if (adminButton) adminButton.classList.remove('hidden');
+    } else {
+        authButton.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+        ratingSection.classList.add('hidden');
+        if (adminButton) adminButton.classList.add('hidden');
+    }
+}
+async function showTask(taskNumber) {
+    if (taskNumber === 'test') {
+        currentTask = 'test';
+        document.getElementById('task-title').textContent = 'Итоговый тест';
+        document.getElementById('practice-content').innerHTML = '';
+        document.getElementById('answer-content').classList.add('hidden');
+        renderTest();
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        document.querySelector(`[data-task="test"]`).classList.add('active');
+        const taskProgress = document.querySelector('.task-progress');
+        if (taskProgress) taskProgress.style.display = 'none';
+        const completionFilter = document.querySelector('.completion-filter');
+        if (completionFilter) completionFilter.style.display = 'none';
+        const accordionItems = document.querySelectorAll('.accordion-item');
+        accordionItems.forEach((item, index) => { if (index !== 4) item.style.display = 'none'; else { item.style.display = 'block'; item.classList.add('active'); } });
+        const practiceControls = document.querySelector('.practice-controls');
+        if (practiceControls) practiceControls.style.display = 'none';
+        return;
+    }
+    const taskProgress = document.querySelector('.task-progress');
+    if (taskProgress) taskProgress.style.display = 'flex';
+    const completionFilter = document.querySelector('.completion-filter');
+    if (completionFilter) completionFilter.style.display = 'flex';
+    const accordionItems = document.querySelectorAll('.accordion-item');
+    accordionItems.forEach(item => item.style.display = 'block');
+    const practiceControls = document.querySelector('.practice-controls');
+    if (practiceControls) practiceControls.style.display = 'flex';
+    const currentData = await loadCourseData();
+    const task = currentData[taskNumber];
+    if (!task) return;
+    currentTask = taskNumber;
+    document.getElementById('task-title').textContent = task.title;
+    document.getElementById('theory-content').innerHTML = task.theory;
+    document.getElementById('algorithm-content').innerHTML = task.algorithm;
+    document.getElementById('examples-content').innerHTML = task.examples;
+    if (currentTaskIndex[taskNumber] === undefined) currentTaskIndex[taskNumber] = 0;
+    showPracticeTask(taskNumber);
+    const answerContent = document.getElementById('answer-content');
+    if (answerContent) { answerContent.classList.add('hidden'); answerContent.classList.remove('visible'); }
+    const showAnswerBtn = document.getElementById('show-answer');
+    if (showAnswerBtn) showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
+    updateProgress(taskNumber);
+    updateActiveNavLink(taskNumber);
+    if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(taskNumber), currentTaskIndex[taskNumber]);
+    if (mistakesSystem) mistakesSystem.renderMistakes();
+    initExampleTabs();
+    const trigButtonContainer = document.getElementById('trig-circle-button-container');
+    if (trigButtonContainer) trigButtonContainer.style.display = taskNumber === '13' ? 'block' : 'none';
+    const coordSection = document.getElementById('coord-plane-section');
+    if (coordSection) coordSection.style.display = taskNumber === '18' ? 'block' : 'none';
+    const intervalButtonContainer = document.getElementById('interval-constructor-button-container');
+    const intervalContainer = document.getElementById('interval-constructor-container');
+    if (intervalButtonContainer && intervalContainer) { intervalButtonContainer.style.display = taskNumber === '15' ? 'block' : 'none'; intervalContainer.style.display = 'none'; }
+    setTimeout(() => processMathExpressions(), 100);
+}
+function showPracticeTask(taskNumber) {
+    const currentData = getCourseData();
+    const task = currentData[taskNumber];
+    const index = currentTaskIndex[taskNumber] || 0;
+    const practiceContent = document.getElementById('practice-content');
+    const answerContent = document.getElementById('answer-content');
+    if (task && task.practice && task.practice.length > 0 && task.practice[index] && practiceContent) practiceContent.innerHTML = task.practice[index].question;
+    else if (practiceContent) practiceContent.innerHTML = '<p>Задания для этого раздела еще не добавлены.</p>';
+    if (task && task.practice && task.practice.length > 0 && task.practice[index] && answerContent) answerContent.innerHTML = task.practice[index].answer;
+    else if (answerContent) answerContent.innerHTML = '<p>Решение пока не доступно.</p>';
+    setTimeout(() => processMathExpressions(), 100);
+}
+function updateProgress(taskNumber) {
+    const currentData = getCourseData();
+    const task = currentData[taskNumber];
+    const current = (currentTaskIndex[taskNumber] || 0) + 1;
+    const total = task && task.practice ? task.practice.length : 0;
+    const currentTaskEl = document.getElementById('current-task');
+    const totalTasksEl = document.getElementById('total-tasks');
+    if (currentTaskEl) currentTaskEl.textContent = current;
+    if (totalTasksEl) totalTasksEl.textContent = total;
+}
+function updateCurrentTask() { if (currentTask && currentTask !== 'test') showTask(currentTask); else if (currentTask === 'test') renderTest(); if (taskCompletionSystem) taskCompletionSystem.updateStatistics(); if (mistakesSystem) mistakesSystem.renderMistakes(); }
+function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); const activeLink = document.querySelector(`[data-task="${taskNumber}"]`); if (activeLink) activeLink.classList.add('active'); }
+function getCourseData() {
+    return JSON.parse(JSON.stringify(courseDataDefaults));
+}
+
 // ============ ЗАГРУЗКА ПРИЛОЖЕНИЯ ============
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM загружен, инициализируем приложение...');
@@ -3743,7 +3894,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     dataExportImportSystem = new DataExportImportSystem();
     await initAuthSystem();
     checkAuthStatus();
-    showTask('13');
+    await showTask('13');
     updateHTMLForMathEditor();
     setTimeout(() => { initMathEditor(); processMathExpressions(); }, 500);
     console.log('Приложение инициализировано!');
