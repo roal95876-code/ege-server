@@ -3460,137 +3460,343 @@ class AdminSystem {
 // ============ СИСТЕМА ТИПИЧНЫХ ОШИБОК ============
 class MistakesSystem {
     constructor() {
-        this.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
-        this.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
+        this.userMistakes = [];
+        this.sharedMistakes = [];
         this.init();
     }
-    init() { this.renderMistakes(); this.setupEventListeners(); }
+    
+    async init() {
+        await this.loadMistakesFromServer();
+        this.renderMistakes();
+        this.setupEventListeners();
+    }
+    
+    async loadMistakesFromServer() {
+        const result = await apiRequest('/api/mistakes');
+        if (result) {
+            this.userMistakes = result.userMistakes || [];
+            this.sharedMistakes = result.sharedMistakes || [];
+            // Сохраняем в localStorage для кэша
+            localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes));
+            localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes));
+        } else {
+            // Если сервер не ответил, грузим из localStorage
+            this.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
+            this.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
+        }
+    }
+    
+    async saveMistakesToServer() {
+        // Сохраняем в localStorage для кэша
+        localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes));
+        localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes));
+        
+        // Отправляем на сервер
+        await apiRequest('/api/save-mistakes', 'POST', {
+            userMistakes: this.userMistakes,
+            sharedMistakes: this.sharedMistakes
+        });
+    }
+    
     setupEventListeners() {
         document.getElementById('add-text-mistake')?.addEventListener('click', () => this.addTextMistake());
         document.getElementById('add-image-mistake')?.addEventListener('click', () => document.getElementById('image-upload').click());
         document.getElementById('image-upload')?.addEventListener('change', (e) => { if (e.target.files[0]) this.addImageMistake(e.target.files[0]); e.target.value = ''; });
-        document.getElementById('mistakes-container')?.addEventListener('click', (e) => {
+        document.getElementById('mistakes-container')?.addEventListener('click', async (e) => {
             if (e.target.closest('.btn-delete-mistake')) {
                 const mistakeItem = e.target.closest('.mistake-item');
                 const index = parseInt(mistakeItem.dataset.index);
                 const isShared = mistakeItem.dataset.shared === 'true';
-                this.deleteMistake(index, isShared);
+                await this.deleteMistake(index, isShared);
             }
         });
         document.getElementById('clear-mistakes-btn')?.addEventListener('click', () => this.clearAllMistakes());
         document.getElementById('mistakes-stats-btn')?.addEventListener('click', () => this.showDetailedStats());
     }
-    addTextMistake() {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
-        const mistake = { id: Date.now(), type: 'text', content: '', caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+    
+    async addTextMistake() {
+        if (!userSystem.currentUser) {
+            showNotification('Сначала войдите в систему!', 'warning');
+            document.getElementById('auth-button').click();
+            return;
+        }
+        
+        const mistake = {
+            id: Date.now(),
+            type: 'text',
+            content: '',
+            caption: '',
+            date: new Date().toLocaleString('ru-RU'),
+            taskNumber: parseInt(currentTask),
+            taskIndex: currentTaskIndex[currentTask],
+            userId: userSystem.currentUser.email,
+            userName: userSystem.currentUser.username,
+            createdAt: new Date().toISOString()
+        };
+        
         this.userMistakes.push(mistake);
-        this.saveMistakes();
-        this.renderMistakes();
+        await this.saveMistakesToServer();
+        await this.renderMistakes();
         showNotification('Текстовая ошибка добавлена', 'info');
     }
-    addImageMistake(file) {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
+    
+    async addImageMistake(file) {
+        if (!userSystem.currentUser) {
+            showNotification('Сначала войдите в систему!', 'warning');
+            document.getElementById('auth-button').click();
+            return;
+        }
+        
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const mistake = { id: Date.now(), type: 'image', content: e.target.result, caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+        reader.onload = async (e) => {
+            const mistake = {
+                id: Date.now(),
+                type: 'image',
+                content: e.target.result,
+                caption: '',
+                date: new Date().toLocaleString('ru-RU'),
+                taskNumber: parseInt(currentTask),
+                taskIndex: currentTaskIndex[currentTask],
+                userId: userSystem.currentUser.email,
+                userName: userSystem.currentUser.username,
+                createdAt: new Date().toISOString()
+            };
+            
             this.userMistakes.push(mistake);
-            this.saveMistakes();
-            this.renderMistakes();
+            await this.saveMistakesToServer();
+            await this.renderMistakes();
             showNotification('Ошибка с изображением добавлена', 'info');
         };
         reader.readAsDataURL(file);
     }
-    deleteMistake(index, isShared) {
+    
+    async deleteMistake(index, isShared) {
         if (isShared) {
-            if (!adminSystem.isAdmin) { showNotification('Только администратор может удалять общие ошибки', 'error'); return; }
-            if (confirm('Удалить эту общую ошибку?')) { this.sharedMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Общая ошибка удалена', 'warning'); }
+            if (!adminSystem.isAdmin) {
+                showNotification('Только администратор может удалять общие ошибки', 'error');
+                return;
+            }
+            if (confirm('Удалить эту общую ошибку?')) {
+                this.sharedMistakes.splice(index, 1);
+                await this.saveMistakesToServer();
+                await this.renderMistakes();
+                showNotification('Общая ошибка удалена', 'warning');
+            }
         } else {
             const mistake = this.userMistakes[index];
             if (!mistake) return;
-            if (userSystem.currentUser && mistake.userId !== userSystem.currentUser.email) { showNotification('Вы можете удалять только свои ошибки!', 'error'); return; }
-            if (confirm('Удалить эту ошибку?')) { this.userMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Ошибка удалена', 'warning'); }
+            
+            if (userSystem.currentUser && mistake.userId !== userSystem.currentUser.email) {
+                showNotification('Вы можете удалять только свои ошибки!', 'error');
+                return;
+            }
+            
+            if (confirm('Удалить эту ошибку?')) {
+                this.userMistakes.splice(index, 1);
+                await this.saveMistakesToServer();
+                await this.renderMistakes();
+                showNotification('Ошибка удалена', 'warning');
+            }
         }
     }
-    saveMistakes() { localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes)); localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes)); }
-    renderMistakes() {
+    
+    async renderMistakes() {
         const container = document.getElementById('mistakes-container');
         if (!container) return;
+        
         container.innerHTML = '';
+        
+        // Фильтруем ошибки по текущему заданию
         let filteredUserMistakes = this.userMistakes.filter(m => m.taskNumber === parseInt(currentTask));
         let filteredSharedMistakes = this.sharedMistakes.filter(m => m.taskNumber === parseInt(currentTask));
-        const allMistakes = [...filteredSharedMistakes.map((m, i) => ({...m, isShared: true, originalIndex: i})), ...filteredUserMistakes.map((m, i) => ({...m, isShared: false, originalIndex: i}))];
-        if (allMistakes.length === 0) { container.innerHTML = `<div class="empty-mistakes"><i class="fas fa-clipboard-list"></i><p>Пока нет добавленных ошибок для этого задания. Добавьте первую!</p></div>`; return; }
-        allMistakes.forEach((mistake, index) => {
-            const template = mistake.type === 'text' ? document.getElementById('text-mistake-template')?.cloneNode(true) : document.getElementById('image-mistake-template')?.cloneNode(true);
-            if (!template) return;
+        
+        const allMistakes = [
+            ...filteredSharedMistakes.map((m, i) => ({...m, isShared: true, originalIndex: i})),
+            ...filteredUserMistakes.map((m, i) => ({...m, isShared: false, originalIndex: i}))
+        ];
+        
+        if (allMistakes.length === 0) {
+            container.innerHTML = `<div class="empty-mistakes"><i class="fas fa-clipboard-list"></i><p>Пока нет добавленных ошибок для этого задания. Добавьте первую!</p></div>`;
+            return;
+        }
+        
+        for (const mistake of allMistakes) {
+            const template = mistake.type === 'text' 
+                ? document.getElementById('text-mistake-template')?.cloneNode(true)
+                : document.getElementById('image-mistake-template')?.cloneNode(true);
+            
+            if (!template) continue;
+            
             template.classList.remove('template');
             template.style.display = 'block';
             template.dataset.index = mistake.originalIndex;
             template.dataset.shared = mistake.isShared;
+            
             if (mistake.isShared) {
                 const header = template.querySelector('.mistake-header');
                 const sharedLabel = document.createElement('span');
                 sharedLabel.className = 'shared-label';
-                sharedLabel.innerHTML = '<i class="fas fa-users"></i> Общая ошибка';
-                sharedLabel.style.cssText = 'color: #3498db; font-size: 0.8rem; margin-left: 10px;';
+                sharedLabel.innerHTML = '<i class="fas fa-globe"></i> Общая ошибка (видна всем)';
+                sharedLabel.style.cssText = 'color: #2ecc71; font-size: 0.8rem; margin-left: 10px;';
                 header.insertBefore(sharedLabel, header.querySelector('.btn-delete-mistake'));
             }
+            
             template.querySelector('.mistake-date').textContent = mistake.date;
+            
             if (mistake.type === 'text') {
                 const textarea = template.querySelector('.mistake-text');
                 textarea.value = mistake.content;
-                textarea.addEventListener('input', (e) => {
-                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].content = e.target.value;
-                    else this.userMistakes[mistake.originalIndex].content = e.target.value;
-                    this.saveMistakes();
+                textarea.addEventListener('input', async (e) => {
+                    if (mistake.isShared) {
+                        this.sharedMistakes[mistake.originalIndex].content = e.target.value;
+                    } else {
+                        this.userMistakes[mistake.originalIndex].content = e.target.value;
+                    }
+                    await this.saveMistakesToServer();
                 });
             } else {
                 const img = template.querySelector('.mistake-image');
                 img.src = mistake.content;
                 const caption = template.querySelector('.mistake-caption');
                 caption.value = mistake.caption;
-                caption.addEventListener('input', (e) => {
-                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].caption = e.target.value;
-                    else this.userMistakes[mistake.originalIndex].caption = e.target.value;
-                    this.saveMistakes();
+                caption.addEventListener('input', async (e) => {
+                    if (mistake.isShared) {
+                        this.sharedMistakes[mistake.originalIndex].caption = e.target.value;
+                    } else {
+                        this.userMistakes[mistake.originalIndex].caption = e.target.value;
+                    }
+                    await this.saveMistakesToServer();
                 });
             }
+            
             container.appendChild(template);
-        });
+        }
+        
         this.renderMistakesStats(filteredUserMistakes, filteredSharedMistakes);
     }
+    
     renderMistakesStats(userMistakes, sharedMistakes) {
         const statsContainer = document.createElement('div');
         statsContainer.className = 'mistakes-stats';
-        statsContainer.innerHTML = `<div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;"><div><i class="fas fa-user" style="color: #3498db;"></i><strong>${userMistakes.length}</strong> моих</div><div><i class="fas fa-users" style="color: #2ecc71;"></i><strong>${sharedMistakes.length}</strong> общих</div><div><i class="fas fa-tasks" style="color: #e74c3c;"></i><strong>${userMistakes.length + sharedMistakes.length}</strong> всего</div></div>`;
+        statsContainer.innerHTML = `
+            <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;">
+                <div><i class="fas fa-user" style="color: #3498db;"></i> <strong>${userMistakes.length}</strong> моих</div>
+                <div><i class="fas fa-globe" style="color: #2ecc71;"></i> <strong>${sharedMistakes.length}</strong> общих</div>
+                <div><i class="fas fa-tasks" style="color: #e74c3c;"></i> <strong>${userMistakes.length + sharedMistakes.length}</strong> всего</div>
+            </div>
+        `;
         document.getElementById('mistakes-container').appendChild(statsContainer);
     }
-    clearAllMistakes() {
-        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return; }
-        if (this.userMistakes.length === 0) { showNotification('У вас нет ошибок для удаления', 'info'); return; }
-        if (confirm(`Вы уверены, что хотите удалить все ваши ошибки (${this.userMistakes.length} шт.)?`)) { this.userMistakes = []; this.saveMistakes(); this.renderMistakes(); showNotification(`Удалено ${this.userMistakes.length} ваших ошибок`, 'success'); }
+    
+    async clearAllMistakes() {
+        if (!userSystem.currentUser) {
+            showNotification('Сначала войдите в систему!', 'warning');
+            return;
+        }
+        
+        if (this.userMistakes.length === 0) {
+            showNotification('У вас нет ошибок для удаления', 'info');
+            return;
+        }
+        
+        if (confirm(`Вы уверены, что хотите удалить все ваши ошибки (${this.userMistakes.length} шт.)?`)) {
+            this.userMistakes = [];
+            await this.saveMistakesToServer();
+            await this.renderMistakes();
+            showNotification(`Все ваши ошибки удалены`, 'success');
+        }
     }
+    
     getMistakesStats() {
-        return { user: { total: this.userMistakes.length, byType: { text: this.userMistakes.filter(m => m.type === 'text').length, image: this.userMistakes.filter(m => m.type === 'image').length }, byTask: this.userMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) }, shared: { total: this.sharedMistakes.length, byType: { text: this.sharedMistakes.filter(m => m.type === 'text').length, image: this.sharedMistakes.filter(m => m.type === 'image').length }, byTask: this.sharedMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) } };
+        return {
+            user: {
+                total: this.userMistakes.length,
+                byType: {
+                    text: this.userMistakes.filter(m => m.type === 'text').length,
+                    image: this.userMistakes.filter(m => m.type === 'image').length
+                },
+                byTask: this.userMistakes.reduce((acc, m) => {
+                    const taskKey = `Задание ${m.taskNumber}`;
+                    acc[taskKey] = (acc[taskKey] || 0) + 1;
+                    return acc;
+                }, {})
+            },
+            shared: {
+                total: this.sharedMistakes.length,
+                byType: {
+                    text: this.sharedMistakes.filter(m => m.type === 'text').length,
+                    image: this.sharedMistakes.filter(m => m.type === 'image').length
+                },
+                byTask: this.sharedMistakes.reduce((acc, m) => {
+                    const taskKey = `Задание ${m.taskNumber}`;
+                    acc[taskKey] = (acc[taskKey] || 0) + 1;
+                    return acc;
+                }, {})
+            }
+        };
     }
+    
     showDetailedStats() {
         const stats = this.getMistakesStats();
-        let statsHTML = `<div style="text-align: left; padding: 15px;"><h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-chart-pie"></i> Статистика ошибок</h4><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #3498db; margin-bottom: 8px;"><i class="fas fa-user"></i> Ваши ошибки</h5><div><strong>Всего:</strong> ${stats.user.total}</div><div><strong>Текстовые:</strong> ${stats.user.byType.text}</div><div><strong>С изображениями:</strong> ${stats.user.byType.image}</div></div><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #2ecc71; margin-bottom: 8px;"><i class="fas fa-users"></i> Общие ошибки</h5><div><strong>Всего:</strong> ${stats.shared.total}</div><div><strong>Текстовые:</strong> ${stats.shared.byType.text}</div><div><strong>С изображениями:</strong> ${stats.shared.byType.image}</div></div>`;
+        
+        let statsHTML = `
+            <div style="text-align: left; padding: 15px;">
+                <h4 style="color: #2c3e50; margin-bottom: 15px;">
+                    <i class="fas fa-chart-pie"></i> Статистика ошибок
+                </h4>
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <h5 style="color: #3498db; margin-bottom: 8px;">
+                        <i class="fas fa-user"></i> Ваши ошибки
+                    </h5>
+                    <div><strong>Всего:</strong> ${stats.user.total}</div>
+                    <div><strong>Текстовые:</strong> ${stats.user.byType.text}</div>
+                    <div><strong>С изображениями:</strong> ${stats.user.byType.image}</div>
+                </div>
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <h5 style="color: #2ecc71; margin-bottom: 8px;">
+                        <i class="fas fa-globe"></i> Общие ошибки
+                    </h5>
+                    <div><strong>Всего:</strong> ${stats.shared.total}</div>
+                    <div><strong>Текстовые:</strong> ${stats.shared.byType.text}</div>
+                    <div><strong>С изображениями:</strong> ${stats.shared.byType.image}</div>
+                </div>
+        `;
+        
         if (stats.user.total > 0 || stats.shared.total > 0) {
-            statsHTML += `<div style="margin-top: 15px; border-top: 1px solid #ecf0f1; padding-top: 10px;"><strong>Общее распределение по заданиям:</strong>`;
+            statsHTML += `<div style="margin-top: 15px; border-top: 1px solid #ecf0f1; padding-top: 10px;">
+                <strong>Распределение по заданиям:</strong>`;
+            
             const allTasks = {};
-            for (const [task, count] of Object.entries(stats.user.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
-            for (const [task, count] of Object.entries(stats.shared.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
-            for (const [task, count] of Object.entries(allTasks)) statsHTML += `<div>${task}: ${count}</div>`;
+            for (const [task, count] of Object.entries(stats.user.byTask)) {
+                allTasks[task] = (allTasks[task] || 0) + count;
+            }
+            for (const [task, count] of Object.entries(stats.shared.byTask)) {
+                allTasks[task] = (allTasks[task] || 0) + count;
+            }
+            for (const [task, count] of Object.entries(allTasks)) {
+                statsHTML += `<div>${task}: ${count}</div>`;
+            }
             statsHTML += `</div>`;
         }
+        
         statsHTML += `</div>`;
+        
         const notification = document.createElement('div');
         notification.className = 'notification info';
         notification.innerHTML = statsHTML;
         notification.style.maxWidth = '400px';
+        
         const container = document.getElementById('notification-container');
-        if (container) { container.appendChild(notification); setTimeout(() => notification.classList.add('show'), 10); setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, 8000); }
+        if (container) {
+            container.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 10);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) notification.parentNode.removeChild(notification);
+                }, 300);
+            }, 8000);
+        }
     }
 }
 
