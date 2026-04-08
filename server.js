@@ -325,6 +325,7 @@ app.post('/api/save-test-questions', (req, res) => {
     res.json({ success: true });
 });
 
+// Получить ошибки
 app.get('/api/mistakes', (req, res) => {
     const data = loadData();
     res.json({
@@ -333,6 +334,7 @@ app.get('/api/mistakes', (req, res) => {
     });
 });
 
+// Сохранить ошибки
 app.post('/api/save-mistakes', (req, res) => {
     const { userMistakes, sharedMistakes } = req.body;
     const data = loadData();
