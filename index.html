@@ -2093,13 +2093,19 @@ const API_URL = 'https://ege-server-3.onrender.com';
 
 async function apiRequest(endpoint, method = 'GET', data = null) {
     try {
-        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        const options = { 
+            method, 
+            headers: { 'Content-Type': 'application/json' }
+        };
         if (data) options.body = JSON.stringify(data);
+        
+        console.log(`📡 Запрос: ${method} ${API_URL}${endpoint}`);
         const response = await fetch(`${API_URL}${endpoint}`, options);
-        return await response.json();
+        const result = await response.json();
+        console.log(`✅ Ответ:`, result);
+        return result;
     } catch (error) {
-        console.error('Ошибка API:', error);
-        showNotification('Ошибка соединения с сервером', 'error');
+        console.error('❌ Ошибка API:', error);
         return null;
     }
 }
