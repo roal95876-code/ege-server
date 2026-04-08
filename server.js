@@ -15,9 +15,9 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 function initDatabase() {
     if (!fs.existsSync(DATA_FILE)) {
         const initialData = {
-            users: [],           // { email, username, password, role, createdBy, createdAt }
+            users: [],
             completedTasks: {},
-            userAccess: {},      // { userEmail: { canAccess: ['task_1', 'task_2'], teacherEmail } }
+            userAccess: {},
             adminExamples: { 13: [], 15: [], 18: [] },
             adminPractice: { 13: [], 15: [], 18: [] },
             adminTheory: { 13: '', 15: '', 18: '' },
@@ -25,7 +25,7 @@ function initDatabase() {
             testQuestions: [],
             userMistakes: [],
             sharedMistakes: [],
-            ownerEmail: null     // Email создателя сайта
+            ownerEmail: null
         };
         fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
         console.log('✅ Создан файл database.json');
@@ -58,33 +58,22 @@ function isAdmin(email) {
 function hasAccessToTask(userEmail, taskId) {
     const data = loadData();
     const user = data.users.find(u => u.email === userEmail);
-    
-    // Владелец и админ имеют доступ ко всему
     if (user && (user.role === 'owner' || user.role === 'admin')) return true;
-    
-    // Проверяем доступ для ученика
     const access = data.userAccess[userEmail];
     return access && access.canAccess && access.canAccess.includes(taskId);
 }
 
 // ============ АВТОРИЗАЦИЯ ============
 app.post('/api/register', (req, res) => {
-    const { email, username, password, role, createdBy } = req.body;
+    const { email, username, password } = req.body;
     const data = loadData();
     
     if (data.users.find(u => u.email === email)) {
         return res.json({ success: false, message: 'Пользователь уже существует' });
     }
     
-    // Определяем роль при регистрации
     let finalRole = 'user';
-    if (role === 'admin') {
-        // Только owner может создавать админов
-        if (createdBy && isOwner(createdBy)) {
-            finalRole = 'admin';
-        }
-    }
-    if (role === 'owner' || data.users.length === 0) {
+    if (data.users.length === 0) {
         finalRole = 'owner';
         data.ownerEmail = email;
     }
@@ -94,13 +83,13 @@ app.post('/api/register', (req, res) => {
         username,
         password,
         role: finalRole,
-        createdBy: createdBy || null,
+        createdBy: null,
         registeredAt: new Date().toISOString()
     };
     
     data.users.push(newUser);
     data.completedTasks[email] = [];
-    data.userAccess[email] = { canAccess: [], teacherEmail: createdBy || null };
+    data.userAccess[email] = { canAccess: [], teacherEmail: null };
     saveData(data);
     
     res.json({ success: true, user: { email, username, role: finalRole } });
@@ -118,8 +107,7 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// ============ УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (АДМИН-ПАНЕЛЬ) ============
-// Получить всех пользователей (только для админов)
+// ============ УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ============
 app.get('/api/users', (req, res) => {
     const { email } = req.query;
     const data = loadData();
@@ -128,7 +116,6 @@ app.get('/api/users', (req, res) => {
         return res.json({ success: false, message: 'Доступ запрещён' });
     }
     
-    // Если обычный админ, показываем только своих учеников
     if (!isOwner(email)) {
         const filteredUsers = data.users.filter(u => u.createdBy === email || u.email === email);
         return res.json({ users: filteredUsers });
@@ -137,7 +124,6 @@ app.get('/api/users', (req, res) => {
     res.json({ users: data.users });
 });
 
-// Назначить роль (только для owner)
 app.post('/api/set-role', (req, res) => {
     const { ownerEmail, targetEmail, newRole } = req.body;
     const data = loadData();
@@ -147,7 +133,7 @@ app.post('/api/set-role', (req, res) => {
     }
     
     const user = data.users.find(u => u.email === targetEmail);
-    if (user) {
+    if (user && user.role !== 'owner') {
         user.role = newRole;
         saveData(data);
         res.json({ success: true });
@@ -156,7 +142,6 @@ app.post('/api/set-role', (req, res) => {
     }
 });
 
-// Добавить ученика (только для админа/owner)
 app.post('/api/add-student', (req, res) => {
     const { teacherEmail, studentEmail, studentName, password } = req.body;
     const data = loadData();
@@ -186,7 +171,6 @@ app.post('/api/add-student', (req, res) => {
     res.json({ success: true, user: newUser });
 });
 
-// Выдать доступ к заданию (для админа)
 app.post('/api/grant-access', (req, res) => {
     const { teacherEmail, studentEmail, taskId } = req.body;
     const data = loadData();
@@ -207,7 +191,6 @@ app.post('/api/grant-access', (req, res) => {
     res.json({ success: true });
 });
 
-// Забрать доступ к заданию
 app.post('/api/revoke-access', (req, res) => {
     const { teacherEmail, studentEmail, taskId } = req.body;
     const data = loadData();
@@ -227,7 +210,6 @@ app.post('/api/revoke-access', (req, res) => {
     res.json({ success: true });
 });
 
-// Получить доступные задания для ученика
 app.get('/api/my-tasks/:email', (req, res) => {
     const { email } = req.params;
     const data = loadData();
@@ -237,7 +219,6 @@ app.get('/api/my-tasks/:email', (req, res) => {
         return res.json({ tasks: [] });
     }
     
-    // Админы и owner видят все задания
     if (user.role === 'owner' || user.role === 'admin') {
         const allTasks = [];
         for (let taskNumber of [13, 15, 18]) {
@@ -248,7 +229,6 @@ app.get('/api/my-tasks/:email', (req, res) => {
         return res.json({ tasks: allTasks });
     }
     
-    // Ученики видят только выданные задания
     const access = data.userAccess[email] || { canAccess: [] };
     res.json({ tasks: access.canAccess });
 });
@@ -264,7 +244,6 @@ app.post('/api/mark-completed', (req, res) => {
     const { email, taskId } = req.body;
     const data = loadData();
     
-    // Проверяем, есть ли доступ у пользователя
     if (!hasAccessToTask(email, taskId) && !isAdmin(email)) {
         return res.json({ success: false, message: 'Нет доступа к этому заданию' });
     }
