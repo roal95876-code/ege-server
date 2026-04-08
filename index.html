@@ -3276,7 +3276,7 @@ class AdminSystem {
         await apiRequest('/api/save-examples', 'POST', { email: userSystem.currentUser.email, taskNumber, examples });
         await this.loadExamplesList();
         this.resetEditMode();
-        updateCurrentTask();
+        await updateCurrentTask();
     }
     async addPracticeTask() {
         const addButton = document.getElementById('add-practice-btn');
@@ -3295,7 +3295,7 @@ class AdminSystem {
         await apiRequest('/api/save-practice', 'POST', { email: userSystem.currentUser.email, taskNumber, practice: practiceTasks });
         await this.loadPracticeList();
         this.resetEditMode();
-        updateCurrentTask();
+        await updateCurrentTask();
     }
     async saveTheory() {
         const taskNumber = parseInt(document.getElementById('theory-task-select').value);
@@ -3305,7 +3305,7 @@ class AdminSystem {
         localStorage.setItem(`admin_${type}_${taskNumber}`, content);
         await apiRequest('/api/save-theory', 'POST', { email: userSystem.currentUser.email, taskNumber, type, content });
         showNotification(`${type === 'theory' ? 'Теория' : 'Алгоритм'} сохранена для задания ${taskNumber}!`, 'success');
-        updateCurrentTask();
+        await updateCurrentTask();
     }
     async loadExamplesList() {
         const listContainer = document.getElementById('existing-examples-list');
@@ -3391,7 +3391,7 @@ class AdminSystem {
         await apiRequest('/api/save-examples', 'POST', { email: userSystem.currentUser.email, taskNumber, examples });
         await this.loadExamplesList();
         showNotification('Пример удален', 'warning');
-        updateCurrentTask();
+        await updateCurrentTask();
     }
     async deletePracticeTask(taskNumber, index) {
         let tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
@@ -3400,7 +3400,7 @@ class AdminSystem {
         await apiRequest('/api/save-practice', 'POST', { email: userSystem.currentUser.email, taskNumber, practice: tasks });
         await this.loadPracticeList();
         showNotification('Задание удалено', 'warning');
-        updateCurrentTask();
+        await updateCurrentTask();
     }
     checkAdminStatus() { if (this.isAdmin) document.getElementById('admin-button')?.classList.remove('hidden'); }
     async loadTestQuestionsList() {
@@ -3875,7 +3875,15 @@ function updateProgress(taskNumber) {
     if (currentTaskEl) currentTaskEl.textContent = current;
     if (totalTasksEl) totalTasksEl.textContent = total;
 }
-function updateCurrentTask() { if (currentTask && currentTask !== 'test') showTask(currentTask); else if (currentTask === 'test') renderTest(); if (taskCompletionSystem) taskCompletionSystem.updateStatistics(); if (mistakesSystem) mistakesSystem.renderMistakes(); }
+async function updateCurrentTask() { 
+    if (currentTask && currentTask !== 'test') {
+        await showTask(currentTask); 
+    } else if (currentTask === 'test') {
+        renderTest(); 
+    }
+    if (taskCompletionSystem) await taskCompletionSystem.updateStatistics(); 
+    if (mistakesSystem) mistakesSystem.renderMistakes(); 
+}
 function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); const activeLink = document.querySelector(`[data-task="${taskNumber}"]`); if (activeLink) activeLink.classList.add('active'); }
 function getCourseData() {
     return JSON.parse(JSON.stringify(courseDataDefaults));
