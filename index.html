@@ -2331,10 +2331,6 @@ const courseDataDefaults = {
 };
 
 function getDefaultCourseData() { return JSON.parse(JSON.stringify(courseDataDefaults)); }
-async function getCourseData() {
-    const serverData = await loadCourseData();
-    return serverData;
-}
 
 // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
 function showNotification(message, type = 'info', duration = 4000) {
@@ -3755,35 +3751,35 @@ function initButtons() {
     const nextTaskBtn = document.getElementById('next-task');
     const prevTaskBtn = document.getElementById('prev-task');
     if (showAnswerBtn) showAnswerBtn.addEventListener('click', function() { const answerContent = document.getElementById('answer-content'); if (answerContent.classList.contains('hidden')) { answerContent.classList.remove('hidden'); answerContent.classList.add('visible'); this.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть ответ'; } else { answerContent.classList.remove('visible'); answerContent.classList.add('hidden'); this.innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; } });
-  if (nextTaskBtn) nextTaskBtn.addEventListener('click', async function() {
-    const currentData = await getCourseData();
-    const task = currentData[currentTask];
-    if (task && task.practice && task.practice.length > 0) {
-        currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length;
-        await showPracticeTask(currentTask);
-        document.getElementById('answer-content').classList.add('hidden');
-        document.getElementById('answer-content').classList.remove('visible');
-        document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-        await updateProgress(currentTask);
-        if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
-        if (mistakesSystem) mistakesSystem.renderMistakes();
-    }
-});
-
-if (prevTaskBtn) prevTaskBtn.addEventListener('click', async function() {
-    const currentData = await getCourseData();
-    const task = currentData[currentTask];
-    if (task && task.practice && task.practice.length > 0) {
-        currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length;
-        await showPracticeTask(currentTask);
-        document.getElementById('answer-content').classList.add('hidden');
-        document.getElementById('answer-content').classList.remove('visible');
-        document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-        await updateProgress(currentTask);
-        if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
-        if (mistakesSystem) mistakesSystem.renderMistakes();
-    }
-});
+    if (nextTaskBtn) nextTaskBtn.addEventListener('click', async function() {
+        const currentData = await getCourseData();
+        const task = currentData[currentTask];
+        if (task && task.practice && task.practice.length > 0) {
+            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length;
+            await showPracticeTask(currentTask);
+            document.getElementById('answer-content').classList.add('hidden');
+            document.getElementById('answer-content').classList.remove('visible');
+            document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
+            await updateProgress(currentTask);
+            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
+            if (mistakesSystem) mistakesSystem.renderMistakes();
+        }
+    });
+    if (prevTaskBtn) prevTaskBtn.addEventListener('click', async function() {
+        const currentData = await getCourseData();
+        const task = currentData[currentTask];
+        if (task && task.practice && task.practice.length > 0) {
+            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length;
+            await showPracticeTask(currentTask);
+            document.getElementById('answer-content').classList.add('hidden');
+            document.getElementById('answer-content').classList.remove('visible');
+            document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
+            await updateProgress(currentTask);
+            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
+            if (mistakesSystem) mistakesSystem.renderMistakes();
+        }
+    });
+}
 function initExampleTabs() {
     document.addEventListener('click', function(e) { if (e.target.classList.contains('example-tab')) { const tabsContainer = e.target.closest('.example-tabs'); const exampleType = e.target.getAttribute('data-type'); const examplesContent = tabsContainer.nextElementSibling; tabsContainer.querySelectorAll('.example-tab').forEach(tab => tab.classList.remove('active')); e.target.classList.add('active'); examplesContent.querySelectorAll('.example').forEach(example => example.classList.remove('active')); const targetExample = examplesContent.querySelector(`.example.${exampleType}`); if (targetExample) targetExample.classList.add('active'); } });
 }
@@ -3855,7 +3851,7 @@ async function showTask(taskNumber) {
     accordionItems.forEach(item => item.style.display = 'block');
     const practiceControls = document.querySelector('.practice-controls');
     if (practiceControls) practiceControls.style.display = 'flex';
-    const currentData = await loadCourseData();
+    const currentData = await getCourseData();
     const task = currentData[taskNumber];
     if (!task) return;
     currentTask = taskNumber;
@@ -3864,12 +3860,12 @@ async function showTask(taskNumber) {
     document.getElementById('algorithm-content').innerHTML = task.algorithm;
     document.getElementById('examples-content').innerHTML = task.examples;
     if (currentTaskIndex[taskNumber] === undefined) currentTaskIndex[taskNumber] = 0;
-    showPracticeTask(taskNumber);
+    await showPracticeTask(taskNumber);
     const answerContent = document.getElementById('answer-content');
     if (answerContent) { answerContent.classList.add('hidden'); answerContent.classList.remove('visible'); }
     const showAnswerBtn = document.getElementById('show-answer');
     if (showAnswerBtn) showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-    updateProgress(taskNumber);
+    await updateProgress(taskNumber);
     updateActiveNavLink(taskNumber);
     if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(taskNumber), currentTaskIndex[taskNumber]);
     if (mistakesSystem) mistakesSystem.renderMistakes();
@@ -3950,6 +3946,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     setTimeout(() => { initMathEditor(); processMathExpressions(); }, 500);
     console.log('Приложение инициализировано!');
 });
-</script>
+    </script>
 </body>
 </html>
