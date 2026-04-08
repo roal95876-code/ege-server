@@ -1,194 +1,3684 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Курс подготовки к ЕГЭ по математике</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js"></script>
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+    position: relative;
+    overflow-x: hidden;
+}
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Увеличиваем лимит для картинок
+#notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+}
 
-const DATA_FILE = path.join(__dirname, 'database.json');
+.notification {
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
-// Инициализация базы данных
-function initDatabase() {
-    if (!fs.existsSync(DATA_FILE)) {
-        const initialData = {
-            users: [],
-            completedTasks: {},
-            adminExamples: { 13: [], 15: [], 18: [] },
-            adminPractice: { 13: [], 15: [], 18: [] },
-            adminTheory: { 13: '', 15: '', 18: '' },
-            adminAlgorithm: { 13: '', 15: '', 18: '' },
-            testQuestions: [],
-            userMistakes: [],
-            sharedMistakes: []
-        };
-        fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
-        console.log('✅ Создан файл database.json');
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.success { background: linear-gradient(135deg, #4CAF50, #45a049); border-left: 4px solid #2E7D32; }
+.notification.info { background: linear-gradient(135deg, #2196F3, #0b7dda); border-left: 4px solid #0d47a1; }
+.notification.warning { background: linear-gradient(135deg, #ff9800, #f57c00); border-left: 4px solid #e65100; }
+.notification.error { background: linear-gradient(135deg, #e74c3c, #c0392b); border-left: 4px solid #7d1408; }
+.notification i { font-size: 1.2em; }
+
+.watermark-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+}
+
+.watermark-formula {
+    position: absolute;
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    font-size: 48px;
+    font-style: italic;
+    font-weight: bold;
+    color: rgba(52, 152, 219, 0.25);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    white-space: nowrap;
+    animation: float 30s linear infinite;
+    user-select: none;
+}
+
+.watermark-formula:nth-child(1) { top: 10%; left: 5%; color: rgba(231, 76, 60, 0.8); }
+.watermark-formula:nth-child(2) { top: 20%; left: 80%; color: rgba(155, 89, 182, 0.8); }
+.watermark-formula:nth-child(3) { top: 40%; left: 15%; color: rgba(52, 152, 219, 0.8); }
+.watermark-formula:nth-child(4) { top: 60%; left: 70%; color: rgba(46, 204, 113, 0.8); }
+.watermark-formula:nth-child(5) { top: 80%; left: 10%; color: rgba(241, 196, 15, 0.8); }
+.watermark-formula:nth-child(6) { top: 15%; left: 60%; color: rgba(230, 126, 34, 0.8); }
+.watermark-formula:nth-child(7) { top: 50%; left: 85%; color: rgba(142, 68, 173, 0.8); }
+.watermark-formula:nth-child(8) { top: 70%; left: 40%; color: rgba(41, 128, 185, 0.8); }
+.watermark-formula:nth-child(9) { top: 30%; left: 30%; color: rgba(39, 174, 96, 0.8); }
+.watermark-formula:nth-child(10) { top: 90%; left: 50%; color: rgba(243, 156, 18, 0.8); }
+.watermark-formula:nth-child(11) { top: 45%; left: 45%; color: rgba(192, 57, 43, 0.8); }
+.watermark-formula:nth-child(12) { top: 75%; left: 75%; color: rgba(127, 140, 141, 0.8); }
+.watermark-formula:nth-child(13) { top: 25%; left: 90%; color: rgba(189, 195, 199, 0.8); }
+.watermark-formula:nth-child(14) { top: 85%; left: 20%; color: rgba(22, 160, 133, 0.8); }
+.watermark-formula:nth-child(15) { top: 55%; left: 5%; color: rgba(44, 62, 80, 0.8); }
+.watermark-formula:nth-child(16) { top: 25%; left: 60%; color: rgba(189, 195, 199, 0.8); }
+.watermark-formula:nth-child(17) { top: 25%; left: 20%; color: rgba(22, 160, 133, 0.8); }
+.watermark-formula:nth-child(18) { top: 75%; left: 5%; color: rgba(44, 62, 80, 0.8); }
+
+@keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0.2; }
+    25% { transform: translate(100px, 50px) rotate(90deg); opacity: 0.3; }
+    50% { transform: translate(200px, -30px) rotate(180deg); opacity: 0.25; }
+    75% { transform: translate(100px, 80px) rotate(270deg); opacity: 0.3; }
+    100% { transform: translate(0, 0) rotate(360deg); opacity: 0.2; }
+}
+
+.watermark-formula:nth-child(2n) { animation-duration: 35s; animation-delay: -5s; }
+.watermark-formula:nth-child(3n) { animation-duration: 40s; animation-delay: -10s; }
+.watermark-formula:nth-child(4n) { animation-duration: 45s; animation-delay: -15s; }
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close-modal {
+    position: absolute;
+    right: 1.5rem;
+    top: 1rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #7f8c8d;
+}
+
+.auth-tabs {
+    display: flex;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.auth-tab {
+    padding: 0.8rem 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    color: #7f8c8d;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.auth-tab.active {
+    color: #3498db;
+    border-bottom-color: #3498db;
+}
+
+.auth-form { display: none; }
+.auth-form.active { display: block; }
+
+.form-group {
+    margin-bottom: 1.2rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.8rem;
+    border: 2px solid #ecf0f1;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.admin-modal {
+    max-width: 1200px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.admin-tabs {
+    display: flex;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #ecf0f1;
+    flex-wrap: wrap;
+}
+
+.admin-tab {
+    padding: 0.8rem 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    color: #7f8c8d;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+}
+
+.admin-tab:hover { color: #3498db; }
+.admin-tab.active { color: #3498db; border-bottom-color: #3498db; }
+.admin-tab-content { display: none; }
+.admin-tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+.admin-section {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #3498db;
+}
+
+.admin-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.admin-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 1rem;
+    background: white;
+}
+
+.admin-item {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: grab;
+    position: relative;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.admin-item:hover {
+    background: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.admin-item:last-child { border-bottom: none; }
+.admin-item.dragging { opacity: 0.5; background: #e9ecef; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.admin-item.drag-over { border-top: 2px solid #3498db; }
+.admin-item-info { flex: 1; display: flex; align-items: center; gap: 10px; }
+.drag-handle { cursor: grab; color: #95a5a6; padding: 5px; border-radius: 4px; transition: all 0.3s ease; }
+.drag-handle:hover { color: #3498db; background: #e9ecef; }
+.admin-item-title { font-weight: 600; color: #2c3e50; margin-bottom: 0.3rem; }
+.admin-item-meta { font-size: 0.9rem; color: #7f8c8d; }
+.admin-item-actions { display: flex; gap: 0.5rem; }
+.btn-small { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+.form-control { width: 100%; padding: 0.8rem; border: 2px solid #ecf0f1; border-radius: 6px; font-size: 1rem; transition: border-color 0.3s ease; }
+.form-control:focus { outline: none; border-color: #3498db; }
+textarea.form-control { resize: vertical; min-height: 100px; }
+.html-hint { font-size: 0.85rem; color: #7f8c8d; margin-top: 0.5rem; font-style: italic; }
+
+header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    padding: 1.5rem 0;
+}
+
+.header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+header h1 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin: 0;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+header p {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-small { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+.user-info { display: flex; align-items: center; gap: 1rem; }
+.user-info span { color: #2c3e50; font-weight: 500; }
+
+.rating-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.rating-section h3 {
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rating-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-item { text-align: center; }
+.stat-label { display: block; font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.3rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.stat-value { display: block; font-size: 1.2rem; font-weight: 600; }
+
+.progress-bar {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.section-progress {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.progress-section {
+    flex: 1;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.progress-section h4 {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.mini-progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.mini-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.progress-section span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: block;
+    color: white;
+}
+
+nav {
+    background: rgba(44, 62, 80, 0.95);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+nav li { margin: 0; }
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 1.2rem 2rem;
+    display: block;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.nav-link:hover { background: rgba(255, 255, 255, 0.1); border-bottom-color: #3498db; }
+.nav-link.active { background: rgba(255, 255, 255, 0.15); border-bottom-color: #e74c3c; }
+.nav-link.completed { background: rgba(39, 174, 96, 0.1); border-left: 3px solid #27ae60; }
+.nav-link.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #27ae60;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.nav-link[data-task="13"] i { color: #3498db; }
+.nav-link[data-task="15"] i { color: #2ecc71; }
+.nav-link[data-task="18"] i { color: #9b59b6; }
+.nav-link[data-task="test"] i { color: #f39c12; }
+
+.completion-filter {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.filter-btn {
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.filter-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+.filter-btn.active { background: #3498db; border-color: #3498db; box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3); }
+
+#rutube-panel {
+    background: linear-gradient(135deg, #6277df 0%, #7288d7 100%);
+    padding: 12px 20px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    border-bottom: 2px solid #fff;
+}
+
+.rutube-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 8px 20px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.rutube-link:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(153, 36, 171, 0.3);
+    border-color: white;
+}
+
+.rutube-link img { height: 28px; width: auto; border-radius: 4px; }
+.rutube-link span { font-size: 1rem; }
+
+@media (max-width: 768px) {
+    #rutube-panel { padding: 10px 15px; }
+    .rutube-link { flex-direction: column; gap: 8px; padding: 10px 15px; text-align: center; width: 90%; margin: 0 auto; }
+    .rutube-link img { height: 24px; }
+    .rutube-link span { font-size: 0.95rem; }
+}
+
+main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+#task-title {
+    color: #2c3e50;
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+.task-progress {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.task-progress::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.btn-mark-completed {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5rem;
+    padding: 0;
+    transition: all 0.3s ease;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.btn-mark-completed i { transition: all 0.3s ease; }
+.btn-mark-completed:not(.completed):hover { background: rgba(52, 152, 219, 0.1); transform: scale(1.1); }
+.btn-mark-completed:not(.completed):hover i { color: #3498db; }
+.btn-mark-completed.completed { animation: celebrate 0.5s ease; }
+.btn-mark-completed.completed i { color: #27ae60; text-shadow: 0 0 10px rgba(39, 174, 96, 0.3); }
+
+@keyframes celebrate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.btn-mark-completed::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #27ae60;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s ease;
+}
+
+.btn-mark-completed.completed::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.accordion {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.accordion-item {
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.accordion-item:last-child { border-bottom: none; }
+
+.accordion-header {
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.accordion-header:hover { background: linear-gradient(135deg, #e9ecef, #dee2e6); }
+.accordion-header h3 { margin: 0; color: #2c3e50; font-size: 1.3rem; font-weight: 600; display: flex; align-items: center; gap: 0.8rem; }
+.accordion-icon { font-size: 1.5rem; font-weight: bold; color: #7f8c8d; transition: transform 0.3s ease; }
+.accordion-item.active .accordion-icon { transform: rotate(45deg); color: #e74c3c; }
+.accordion-content { padding: 0; max-height: 0; overflow: hidden; transition: all 0.3s ease; }
+.accordion-item.active .accordion-content { padding: 2rem; max-height: 5000px; }
+
+.accordion-item:nth-child(1) .accordion-header i { color: #3498db; }
+.accordion-item:nth-child(2) .accordion-header i { color: #2ecc71; }
+.accordion-item:nth-child(3) .accordion-header i { color: #9b59b6; }
+.accordion-item:nth-child(4) .accordion-header i { color: #e67e22; }
+.accordion-item:nth-child(5) .accordion-header i { color: #e74c3c; }
+
+.mistakes-section { padding: 1rem 0; }
+.mistakes-header { margin-bottom: 1.5rem; text-align: center; }
+.mistakes-header h4 { color: #2c3e50; font-size: 1.3rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.mistakes-header p { color: #7f8c8d; }
+.mistakes-controls { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.mistakes-container { min-height: 200px; border: 2px dashed #ecf0f1; border-radius: 8px; padding: 2rem; background: #f8f9fa; }
+.empty-mistakes { text-align: center; color: #95a5a6; }
+.empty-mistakes i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+.empty-mistakes p { font-size: 1.1rem; }
+.mistake-item { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #e74c3c; }
+.mistake-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid #ecf0f1; }
+.mistake-date { color: #7f8c8d; font-size: 0.9rem; }
+.btn-delete-mistake { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1rem; padding: 0.3rem 0.5rem; border-radius: 4px; transition: background 0.3s ease; }
+.btn-delete-mistake:hover { background: #fdf2f2; }
+.mistake-content textarea { width: 100%; min-height: 100px; padding: 1rem; border: 2px solid #ecf0f1; border-radius: 6px; font-family: inherit; font-size: 1rem; resize: vertical; transition: border-color 0.3s ease; }
+.mistake-content textarea:focus { outline: none; border-color: #3498db; }
+.mistake-image { width: 100%; max-width: 300px; border-radius: 6px; margin-bottom: 1rem; display: block; }
+.mistake-caption { min-height: 80px; }
+.mistakes-templates { display: none; }
+.mistakes-stats { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #2c3e50; text-align: center; border-left: 4px solid #3498db; }
+.mistakes-stats div { color: #2c3e50; }
+.mistakes-stats i { color: #3498db; }
+.mistakes-stats strong { color: #1e293b; }
+
+.math-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.math-btn {
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Cambria Math', serif;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.math-btn:hover { background: #3498db; color: white; }
+.math-btn.special { background: #e74c3c; color: white; border-color: #c0392b; }
+.math-btn.special:hover { background: #c0392b; }
+.help-text { font-size: 0.9rem; color: #7f8c8d; margin-top: 5px; font-style: italic; }
+.help-text code { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+
+.math-formula {
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    font-size: 18px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border-left: 4px solid #3498db;
+    text-align: center;
+    font-style: italic;
+}
+
+.math-fraction {
+    display: inline-block;
+    text-align: center;
+    vertical-align: middle;
+    margin: 0 5px;
+}
+
+.math-fraction sup, .math-fraction sub {
+    display: block;
+    font-size: 0.9em;
+    line-height: 1.2;
+}
+
+.math-fraction sup {
+    border-bottom: 1px solid #333;
+    padding-bottom: 2px;
+    margin-bottom: 1px;
+}
+
+.math-processed { position: relative; }
+.editor-container { margin-bottom: 15px; }
+.editor-container .math-toolbar { margin-bottom: 10px; }
+.math-fraction { display: inline-block; text-align: center; vertical-align: middle; margin: 0 2px; }
+.math-fraction sup, .math-fraction sub { display: block; font-size: 0.85em; line-height: 1.1; }
+.math-fraction sup { border-bottom: 1px solid #333; padding-bottom: 1px; margin-bottom: 1px; }
+.math-fraction sub { padding-top: 1px; }
+sup, sub { font-size: 0.75em; line-height: 1; }
+.math-btn { min-width: 40px; text-align: center; }
+.math-btn:hover { transform: translateY(-2px); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+.content-box { padding: 0; }
+.theory-section { margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db; }
+.theory-section h4 { color: #2c3e50; margin-bottom: 1rem; font-size: 1.2rem; }
+.theory-section ul, .theory-section ol { margin: 1rem 0; padding-left: 2rem; }
+.theory-section li { margin-bottom: 0.8rem; line-height: 1.6; }
+.formula-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.formula-card { background: white; padding: 1.5rem; border-radius: 8px; border: 2px solid #e9ecef; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.formula-card h5 { color: #2c3e50; margin-bottom: 1rem; font-size: 1.1rem; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+.formula-item { margin-bottom: 1rem; padding: 0.8rem; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #9b59b6; font-family: 'Cambria Math', serif; font-size: 16px; }
+
+.algorithm-steps { counter-reset: step-counter; }
+.step { display: flex; align-items: flex-start; margin-bottom: 1.5rem; padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e74c3c; }
+.step-number { background: #e74c3c; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1.5rem; flex-shrink: 0; font-size: 1.1rem; }
+.step-content { flex: 1; }
+.step-content strong { color: #2c3e50; font-size: 1.1rem; display: block; margin-bottom: 0.5rem; }
+
+.examples-section { margin: 2rem 0; }
+.example-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.example-tab { padding: 0.8rem 1.5rem; background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-weight: 500; user-select: none; }
+.example-tab:hover { background: #e9ecef; }
+.example-tab.active { background: #3498db; color: white; border-color: #3498db; }
+.example { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid #9b59b6; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; }
+.example.active { display: block; animation: fadeIn 0.5s ease; }
+.example-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.example-title { color: #2c3e50; font-weight: 600; font-size: 1.1rem; }
+.example-type { background: #9b59b6; color: white; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
+.example.trigonometric .example-type i { color: #3498db; }
+.example.exponential .example-type i { color: #e74c3c; }
+.example.logarithmic .example-type i { color: #2ecc71; }
+.example.rational .example-type i { color: #f39c12; }
+.example.equation .example-type i { color: #9b59b6; }
+.example.inequality .example-type i { color: #1abc9c; }
+.example.system .example-type i { color: #d35400; }
+
+.practice-task { background: white; padding: 2rem; border-radius: 8px; border: 2px solid #ecf0f1; margin-bottom: 1.5rem; }
+.task-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #f8f9fa; }
+.task-source { background: #27ae60; color: white; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem; font-weight: 500; }
+.task-difficulty { color: white; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; gap: 5px; }
+.difficulty-easy { background: #27ae60; }
+.difficulty-medium { background: #f39c12; }
+.difficulty-hard { background: #e74c3c; }
+.difficulty-easy i { color: #2ecc71; }
+.difficulty-medium i { color: #f39c12; }
+.difficulty-hard i { color: #e74c3c; }
+.practice-task p { margin-bottom: 1rem; font-size: 1.1rem; }
+
+.practice-controls {
+    margin: 2rem 0;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.practice-controls .btn {
+    flex: 1;
+    min-width: 200px;
+    justify-content: center;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.practice-controls .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+    transition: left 0.5s ease;
+}
+
+.practice-controls .btn:hover::before { left: 100%; }
+.practice-controls .btn:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+.practice-controls .btn-primary { background: linear-gradient(135deg, #2ecc71, #27ae60); border: none; }
+.practice-controls .btn-secondary { background: linear-gradient(135deg, #e74c3c, #c0392b); border: none; }
+.practice-controls .btn-outline { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 2px solid rgba(255, 255, 255, 0.3); color: white; }
+.practice-controls .btn-outline:hover { background: rgba(255, 255, 255, 0.2); border-color: white; }
+.practice-controls .btn-success { background: linear-gradient(135deg, #27ae60, #219653); border: none; color: white; }
+
+.btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    user-select: none;
+}
+
+.btn i { font-size: 0.9em; transition: transform 0.3s ease; }
+.btn:hover i { transform: translateY(-2px); }
+.btn-primary { background: #3498db; color: white; }
+.btn-primary:hover { background: #2980b9; transform: translateY(-2px); }
+.btn-secondary { background: #e74c3c; color: white; }
+.btn-secondary:hover { background: #c0392b; transform: translateY(-2px); }
+.btn-success { background: #27ae60; color: white; }
+.btn-success:hover { background: #219653; transform: translateY(-2px); }
+.btn-outline { background: transparent; color: #7f8c8d; border: 2px solid #bdc3c7; }
+.btn-outline:hover { background: #ecf0f1; transform: translateY(-2px); }
+
+.answer-container {
+    background: linear-gradient(135deg, #e8f4f8, #d1ecf1);
+    padding: 2rem;
+    border-radius: 12px;
+    border-left: 6px solid #3498db;
+    margin-top: 1rem;
+}
+
+.answer-container.hidden { display: none; }
+.answer-container.visible { display: block; animation: slideIn 0.5s ease; }
+.solution { animation: fadeIn 0.8s ease; }
+.solution h4 { color: #2c3e50; margin-bottom: 1rem; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
+.solution h4 i { color: #27ae60; }
+.solution-step { margin-bottom: 1.5rem; padding: 1rem; background: rgba(255, 255, 255, 0.7); border-radius: 6px; }
+.solution-step strong { color: #e74c3c; display: block; margin-bottom: 0.5rem; }
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+footer {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(44, 62, 80, 0.95);
+    color: white;
+    margin-top: 3rem;
+}
+
+footer p { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.footer-info { margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8; }
+.hidden { display: none !important; }
+
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    background-color: #f00;
+    border-radius: 50%;
+    z-index: 9998;
+    pointer-events: none;
+    animation: confetti-fall 1s linear forwards;
+}
+
+@keyframes confetti-fall {
+    0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@media (max-width: 768px) {
+    .header-content { padding: 0 1rem; }
+    .header-top { flex-direction: column; gap: 1rem; text-align: center; }
+    header h1 { font-size: 1.8rem; }
+    nav ul { flex-direction: column; padding: 0; }
+    .nav-link { padding: 1rem; text-align: center; justify-content: center; }
+    main { padding: 0 1rem; }
+    .task-header { flex-direction: column; gap: 1rem; text-align: center; }
+    .task-progress { flex-direction: row; justify-content: center; }
+    .accordion-header { padding: 1rem 1.5rem; }
+    .accordion-content { padding: 0 1.5rem !important; }
+    .accordion-item.active .accordion-content { padding: 1.5rem !important; }
+    .rating-stats { grid-template-columns: 1fr; gap: 0.8rem; }
+    .section-progress { flex-direction: column; gap: 10px; }
+    .progress-section { padding: 8px; }
+    .mistakes-controls { flex-direction: column; }
+    .btn { width: 100%; justify-content: center; }
+    .practice-controls .btn { min-width: 100%; }
+    .practice-controls { flex-direction: column; }
+    .step { flex-direction: column; text-align: center; }
+    .step-number { margin-right: 0; margin-bottom: 1rem; }
+    .example-tabs { flex-direction: column; }
+    .task-meta { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+    .formula-grid { grid-template-columns: 1fr; }
+    .modal-content { margin: 20% auto; width: 95%; padding: 1.5rem; }
+    .watermark-formula { font-size: 24px; }
+    .completion-filter { flex-direction: column; align-items: center; }
+    .filter-btn { width: 90%; margin-bottom: 5px; min-width: auto; }
+    .admin-modal { width: 95%; margin: 5% auto; padding: 1rem; }
+    .admin-tab { min-width: 150px; padding: 0.6rem 1rem; font-size: 0.9rem; }
+    .math-toolbar { justify-content: center; }
+    .math-btn { padding: 6px 10px; font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+    header h1 { font-size: 1.5rem; }
+    #task-title { font-size: 1.4rem; }
+    .watermark-formula { font-size: 18px; }
+    .admin-tab { min-width: 100%; margin-bottom: 5px; }
+}
+
+.math-fraction { display: inline-block; vertical-align: middle; text-align: center; margin: 0 2px; font-size: 1.1em; }
+.math-fraction sup, .math-fraction sub { display: block; font-size: 0.85em; line-height: 1.2; }
+.math-fraction sup { border-bottom: 1px solid #333; padding-bottom: 2px; margin-bottom: 1px; }
+.math-fraction sub { padding-top: 1px; }
+.math-fraction sup::before, .math-fraction sub::before, .math-fraction sup::after, .math-fraction sub::after { display: none; }
+.math-fraction sup[data-brackets="true"]::before, .math-fraction sub[data-brackets="true"]::before { content: '('; display: inline; font-size: 1.2em; color: inherit; }
+.math-fraction sup[data-brackets="true"]::after, .math-fraction sub[data-brackets="true"]::after { content: ')'; display: inline; font-size: 1.2em; color: inherit; }
+.formula-fraction { font-family: 'Cambria Math', serif; font-style: italic; }
+.math-expression { font-family: 'Cambria Math', 'Times New Roman', serif; font-style: italic; font-size: 1.1em; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; }
+.watermark-formula .math-fraction { font-size: 0.9em; }
+
+.data-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border-left: 4px solid #3498db;
+}
+
+.data-section h3 { color: #2c3e50; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+.data-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+.data-controls .btn { flex: 1; min-width: 200px; }
+.data-section p { color: #7f8c8d; margin-bottom: 15px; line-height: 1.5; }
+.data-instructions { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-top: 15px; }
+.data-instructions ol { margin-left: 20px; margin-top: 10px; }
+.data-instructions li { margin-bottom: 8px; color: #7f8c8d; }
+
+.trig-circle-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    overflow: auto;
+}
+
+.trig-circle-content {
+    background: #1c3a44;
+    margin: 3% auto;
+    padding: 25px;
+    border-radius: 60px;
+    width: fit-content;
+    max-width: 700px;
+    box-shadow: 0 25px 45px black;
+    position: relative;
+}
+
+.trig-circle-close {
+    position: absolute;
+    right: 30px;
+    top: 20px;
+    color: white;
+    font-size: 35px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10;
+    width: 50px;
+    height: 50px;
+    background: #1e667a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #b0f0ff;
+}
+
+.trig-circle-close:hover { background: #3ea6ba; color: white; }
+.trig-circle-container { background: #1c3a44; }
+.trig-circle-container canvas { display: block; width: 600px; height: 600px; border-radius: 50%; box-shadow: 0 0 0 6px #2e6a7a, 0 25px 45px black; background: #f5ffff; cursor: grab; margin-bottom: 20px; }
+.trig-circle-container canvas:active { cursor: grabbing; }
+.trig-circle-panel {
+    background: #0e2832f0;
+    padding: 15px 30px;
+    border-radius: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    backdrop-filter: blur(6px);
+    border: 2px solid #60c0d0;
+}
+
+.trig-circle-angle {
+    background: #021016;
+    padding: 10px 30px;
+    border-radius: 50px;
+    border-left: 10px solid #70e0ff;
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+.trig-circle-controls { display: flex; gap: 20px; align-items: center; }
+.trig-circle-controls select, .trig-circle-controls button {
+    background: #1e667a;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 50px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    border: 2px solid #b0f0ff;
+    cursor: pointer;
+    border-bottom: 6px solid #0e424e;
+}
+
+.trig-circle-controls button:hover { background: #3ea6ba; transform: translateY(-2px); }
+
+@media (max-width: 768px) {
+    .trig-circle-content { margin: 5% auto; width: 95%; padding: 15px; }
+    .trig-circle-content canvas { width: 100%; height: auto; }
+    .trig-circle-panel { flex-direction: column; gap: 15px; }
+}
+
+.interval-constructor-card {
+    max-width: 1200px;
+    width: 100%;
+    background: white;
+    border-radius: 40px;
+    padding: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    margin: 20px 0;
+}
+
+.interval-constructor-card .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+.interval-constructor-card h2 { font-size: 32px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 12px; }
+.interval-constructor-card .badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 6px 16px; border-radius: 100px; font-size: 14px; }
+.interval-constructor-card .viz-container { background: #f8fafc; border-radius: 32px; padding: 32px 20px; border: 2px solid #e2e8f0; margin-bottom: 28px; }
+.interval-constructor-card .axis-label { display: flex; justify-content: space-between; margin-bottom: 12px; padding: 0 30px; color: #64748b; font-weight: 600; font-size: 14px; }
+.interval-constructor-card .number-line { position: relative; height: 120px; background: white; border-radius: 60px; margin: 0 10px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.05); border: 2px solid #e2e8f0; cursor: crosshair; }
+.interval-constructor-card .line-base { position: absolute; top: 50%; left: 30px; right: 30px; height: 4px; background: #94a3b8; transform: translateY(-50%); border-radius: 4px; }
+.interval-constructor-card .point { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; border: 3px solid; box-shadow: 0 8px 16px rgba(0,0,0,0.15); z-index: 20; cursor: pointer; transition: all 0.2s; }
+.interval-constructor-card .point:hover { transform: translate(-50%, -50%) scale(1.15); z-index: 30; }
+.interval-constructor-card .point.selected { box-shadow: 0 0 0 4px #4299e1; }
+.interval-constructor-card .point.numerator { border-color: #10b981; background: #10b981; }
+.interval-constructor-card .point.denominator { border-color: #ef4444; background: white; }
+.interval-constructor-card .point.coincident-numerator { border-color: #3b82f6; background: white; }
+.interval-constructor-card .point.coincident-numerator.filled { background: #3b82f6 !important; }
+.interval-constructor-card .point.coincident-denominator { border-color: #f59e0b; background: white; }
+.interval-constructor-card .point-label { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 8px rgba(0,0,0,0.2); pointer-events: none; }
+.interval-constructor-card .interval-area { position: absolute; top: 0; height: 120px; background: rgba(102, 126, 234, 0.05); border-left: 2px dashed #94a3b8; border-right: 2px dashed #94a3b8; z-index: 5; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: #1e293b; transition: all 0.2s; }
+.interval-constructor-card .interval-area:hover { background: rgba(102, 126, 234, 0.15); }
+.interval-constructor-card .interval-area.has-sign { background: rgba(16, 185, 129, 0.1); }
+.interval-constructor-card .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.interval-constructor-card .sign-modal { background: white; padding: 32px; border-radius: 40px; text-align: center; min-width: 320px; }
+.interval-constructor-card .sign-modal h3 { font-size: 24px; margin-bottom: 24px; color: #0f172a; }
+.interval-constructor-card .sign-buttons { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+.interval-constructor-card .sign-btn { width: 80px; height: 80px; border-radius: 50%; border: none; font-size: 48px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+.interval-constructor-card .sign-btn.plus { background: #10b981; color: white; }
+.interval-constructor-card .sign-btn.plus:hover { background: #059669; transform: scale(1.1); }
+.interval-constructor-card .sign-btn.minus { background: #ef4444; color: white; }
+.interval-constructor-card .sign-btn.minus:hover { background: #dc2626; transform: scale(1.1); }
+.interval-constructor-card .cancel-btn { background: #e2e8f0; border: none; padding: 12px 30px; border-radius: 40px; font-size: 16px; font-weight: 600; color: #475569; cursor: pointer; }
+.interval-constructor-card .control-panel { background: #f8fafc; border-radius: 28px; padding: 28px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; border: 1px solid #e2e8f0; }
+.interval-constructor-card .type-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+.interval-constructor-card .type-btn { padding: 10px 16px; border: 2px solid; border-radius: 40px; background: white; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; flex: 0 1 auto; min-width: 90px; text-align: center; }
+.interval-constructor-card .type-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+.interval-constructor-card .type-btn.active { color: white; }
+.interval-constructor-card .type-btn.numerator { border-color: #10b981; color: #10b981; }
+.interval-constructor-card .type-btn.numerator.active { background: #10b981; color: white; }
+.interval-constructor-card .type-btn.denominator { border-color: #ef4444; color: #ef4444; }
+.interval-constructor-card .type-btn.denominator.active { background: #ef4444; color: white; }
+.interval-constructor-card .type-btn.coincident-numerator { border-color: #3b82f6; color: #3b82f6; }
+.interval-constructor-card .type-btn.coincident-numerator.active { background: #3b82f6; color: white; }
+.interval-constructor-card .type-btn.coincident-denominator { border-color: #f59e0b; color: #f59e0b; }
+.interval-constructor-card .type-btn.coincident-denominator.active { background: #f59e0b; color: white; }
+.interval-constructor-card .input-group { display: flex; gap: 10px; align-items: center; }
+.interval-constructor-card .input-group input { flex: 1; padding: 14px 20px; border: 2px solid #e2e8f0; border-radius: 40px; font-size: 16px; background: white; }
+.interval-constructor-card .input-group input:focus { outline: none; border-color: #667eea; }
+.interval-constructor-card .btn { padding: 14px 24px; border: none; border-radius: 40px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.interval-constructor-card .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+.interval-constructor-card .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3); }
+.interval-constructor-card .btn-secondary { background: white; color: #475569; border: 2px solid #e2e8f0; }
+.interval-constructor-card .btn-secondary:hover { background: #f8fafc; }
+.interval-constructor-card .btn-danger { background: #ef4444; color: white; }
+.interval-constructor-card .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.interval-constructor-card .points-list { background: white; border-radius: 24px; padding: 20px; margin: 24px 0; max-height: 250px; overflow-y: auto; border: 2px solid #f1f5f9; }
+.interval-constructor-card .point-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: #f8fafc; border-radius: 16px; margin-bottom: 8px; border-left: 6px solid transparent; }
+.interval-constructor-card .point-info { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.interval-constructor-card .point-value { font-weight: 700; font-size: 16px; color: #0f172a; }
+.interval-constructor-card .point-type-badge { padding: 4px 12px; border-radius: 40px; font-size: 12px; font-weight: 600; color: white; }
+.interval-constructor-card .filled-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 12px; background: white; border-radius: 30px; border: 1px solid #e2e8f0; }
+.interval-constructor-card .filled-toggle input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.interval-constructor-card .remove-btn { width: 32px; height: 32px; border-radius: 50%; background: #fee2e2; color: #ef4444; border: none; font-size: 18px; cursor: pointer; }
+.interval-constructor-card .remove-btn:hover { background: #ef4444; color: white; }
+.interval-constructor-card .legend { display: flex; gap: 20px; justify-content: center; margin: 24px 0; padding: 16px 24px; background: #f8fafc; border-radius: 60px; flex-wrap: wrap; }
+.interval-constructor-card .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; }
+.interval-constructor-card .legend-dot { width: 20px; height: 20px; border-radius: 50%; border: 3px solid; }
+.interval-constructor-card .hint { text-align: center; color: #64748b; font-size: 14px; padding: 12px; background: #f1f5f9; border-radius: 40px; }
+
+.graph-control-panel { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+.graph-control-panel .btn-update { background: #10b981; color: white; border: none; padding: 8px 18px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+.graph-control-panel .btn-update:hover { background: #059669; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+
+.interval-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+.interval-sign-modal { background: white; padding: 32px; border-radius: 40px; text-align: center; min-width: 320px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+.interval-sign-modal h3 { font-size: 24px; margin-bottom: 24px; color: #0f172a; }
+.interval-sign-buttons { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+.interval-sign-btn { width: 80px; height: 80px; border-radius: 50%; border: none; font-size: 48px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+.interval-sign-btn.interval-plus { background: #10b981; color: white; }
+.interval-sign-btn.interval-plus:hover { background: #059669; transform: scale(1.1); }
+.interval-sign-btn.interval-minus { background: #ef4444; color: white; }
+.interval-sign-btn.interval-minus:hover { background: #dc2626; transform: scale(1.1); }
+.interval-cancel-btn { background: #e2e8f0; border: none; padding: 12px 30px; border-radius: 40px; font-size: 16px; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.2s; }
+.interval-cancel-btn:hover { background: #cbd5e1; }
+
+.test-container { background: white; border-radius: 12px; padding: 2rem; margin-top: 1rem; }
+.test-question { margin-bottom: 2rem; }
+.test-question-text { font-size: 1.2rem; font-weight: 500; margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+.test-options { list-style: none; padding: 0; }
+.test-option { margin-bottom: 0.8rem; display: flex; align-items: center; gap: 10px; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+.test-option:hover { background: #f0f0f0; }
+.test-option input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
+.test-option label { cursor: pointer; flex: 1; font-size: 1rem; }
+.test-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 10px; flex-wrap: wrap; }
+.test-progress { font-weight: 500; color: #3498db; }
+.test-result { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px; text-align: center; margin-top: 1rem; }
+.test-result h3 { font-size: 2rem; margin-bottom: 1rem; }
+.test-result p { font-size: 1.2rem; margin-bottom: 1.5rem; }
+.test-feedback { margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3498db; }
+.test-feedback.correct { border-left-color: #27ae60; background: #f0fff4; }
+.test-feedback.incorrect { border-left-color: #e74c3c; background: #fff5f5; }
+    </style>
+</head>
+<body>
+    <div id="notification-container"></div>
+    
+    <div class="watermark-container">
+        <div class="watermark-formula">∫ f(x)dx</div>
+        <div class="watermark-formula">∑ x²</div>
+        <div class="watermark-formula">lim x→∞</div>
+        <div class="watermark-formula">π ≈ 3.14</div>
+        <div class="watermark-formula">e = 2.718</div>
+        <div class="watermark-formula">√2 ≈ 1.414</div>
+        <div class="watermark-formula">sin²α + cos²α = 1</div>
+        <div class="watermark-formula">a² + b² = c²</div>
+        <div class="watermark-formula">Δ = b² - 4ac</div>
+        <div class="watermark-formula">(a + b)² = a² + 2ab + b²</div>
+        <div class="watermark-formula">logₐb = c</div>
+        <div class="watermark-formula">f'(x) = lim</div>
+        <div class="watermark-formula">∫xⁿ dx = <div class="math-fraction"><sup>xⁿ⁺¹</sup><sub>n+1</sub></div></div>
+        <div class="watermark-formula">sin(α ± β)</div>
+        <div class="watermark-formula">cos(α ± β)</div>
+        <div class="watermark-formula">sin(π/2±α)=cos α</div>
+        <div class="watermark-formula">cos(π/2±α)=∓sin α</div>
+        <div class="watermark-formula">sin(π±α)=∓sin α</div>
+    </div>
+    
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Регистрация / Вход</h2>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Вход</button>
+                <button class="auth-tab" data-tab="register">Регистрация</button>
+            </div>
+            
+            <form id="login-form" class="auth-form active">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Пароль:</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Войти</button>
+            </form>
+            
+            <form id="register-form" class="auth-form">
+                <div class="form-group">
+                    <label for="register-email">Email:</label>
+                    <input type="email" id="register-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-username">Имя:</label>
+                    <input type="text" id="register-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Пароль:</label>
+                    <input type="password" id="register-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="modal">
+        <div class="modal-content admin-modal">
+            <span class="close-modal">&times;</span>
+            <h2><i class="fas fa-cog"></i> Админ-панель</h2>
+            
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="edit-examples"><i class="fas fa-list-ol"></i> Разобранные примеры</button>
+                <button class="admin-tab" data-tab="edit-practice"><i class="fas fa-bullseye"></i> Практические задания</button>
+                <button class="admin-tab" data-tab="edit-theory"><i class="fas fa-book"></i> Теория и алгоритмы</button>
+                <button class="admin-tab" data-tab="edit-test"><i class="fas fa-clipboard-list"></i> Итоговый тест</button>
+            </div>
+            
+            <div id="edit-examples" class="admin-tab-content active">
+                <div class="admin-section">
+                    <h3><i class="fas fa-plus"></i> Добавить новый пример</h3>
+                    <div class="form-group">
+                        <label>Раздел:</label>
+                        <select id="example-task-select" class="form-control">
+                            <option value="13">Задание 13: Уравнения</option>
+                            <option value="15">Задание 15: Неравенства</option>
+                            <option value="18">Задание 18: Параметры</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип примера:</label>
+                        <select id="example-type" class="form-control">
+                            <option value="trigonometric">Тригонометрический</option>
+                            <option value="exponential">Показательный</option>
+                            <option value="logarithmic">Логарифмический</option>
+                            <option value="rational">Рациональный</option>
+                            <option value="inequality">Неравенство</option>
+                            <option value="system">Система</option>
+                            <option value="equation">Уравнение</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Название примера:</label>
+                        <input type="text" id="example-title" class="form-control" placeholder="Пример: Решение сложного уравнения">
+                    </div>
+                    <div class="form-group">
+                        <label>Условие:</label>
+                        <div class="editor-container">
+                            <div class="math-toolbar">
+                                <button type="button" class="math-btn" data-insert=" + ">+</button>
+                                <button type="button" class="math-btn" data-insert=" - ">-</button>
+                                <button type="button" class="math-btn" data-insert=" × ">×</button>
+                                <button type="button" class="math-btn" data-insert=" ÷ ">÷</button>
+                                <button type="button" class="math-btn" data-insert=" = ">=</button>
+                                <button type="button" class="math-btn" data-insert=" ≠ ">≠</button>
+                                <button type="button" class="math-btn" data-insert="·">·</button>
+                                <button type="button" class="math-btn" data-insert="⁰">⁰</button>
+                                <button type="button" class="math-btn" data-insert="¹">¹</button>
+                                <button type="button" class="math-btn" data-insert="²">²</button>
+                                <button type="button" class="math-btn" data-insert="³">³</button>
+                                <button type="button" class="math-btn" data-insert="⁴">⁴</button>
+                                <button type="button" class="math-btn" data-insert="⁵">⁵</button>
+                                <button type="button" class="math-btn" data-insert="⁶">⁶</button>
+                                <button type="button" class="math-btn" data-insert="⁷">⁷</button>
+                                <button type="button" class="math-btn" data-insert="⁸">⁸</button>
+                                <button type="button" class="math-btn" data-insert="⁹">⁹</button>
+                                <button type="button" class="math-btn" data-insert="ˣ">ˣ</button>
+                                <button type="button" class="math-btn" data-insert="⁺">⁺</button>
+                                <button type="button" class="math-btn" data-insert="⁻">⁻</button>
+                                <button type="button" class="math-btn" data-insert="⁽">⁽</button>
+                                <button type="button" class="math-btn" data-insert="⁾">⁾</button>
+                                <button type="button" class="math-btn" data-insert="π">π</button>
+                                <button type="button" class="math-btn" data-insert="√">√</button>
+                                <button type="button" class="math-btn" data-insert="≥">≥</button>
+                                <button type="button" class="math-btn" data-insert="≤">≤</button>
+                                <button type="button" class="math-btn" data-insert="∞">∞</button>         
+                                <button type="button" class="math-btn" data-insert="₀">₀</button>
+                                <button type="button" class="math-btn" data-insert="₁">₁</button>
+                                <button type="button" class="math-btn" data-insert="₂">₂</button>
+                                <button type="button" class="math-btn" data-insert="₃">₃</button>
+                                <button type="button" class="math-btn" data-insert="₄">₄</button>
+                                <button type="button" class="math-btn" data-insert="₅">₅</button>
+                                <button type="button" class="math-btn" data-insert="₆">₆</button>
+                                <button type="button" class="math-btn" data-insert="₇">₇</button>
+                                <button type="button" class="math-btn" data-insert="₈">₈</button>
+                                <button type="button" class="math-btn" data-insert="₉">₉</button>
+                                <button type="button" class="math-btn" onclick="insertSinTemplate('textarea-id')">sin</button>
+                                <button type="button" class="math-btn" onclick="insertCosTemplate('textarea-id')">cos</button>
+                                <button type="button" class="math-btn" onclick="insertFractionTemplate('practice-question')">Дробь</button>
+                                <button type="button" class="math-btn" onclick="insertPowerTemplate('practice-question')">Степень</button>
+                                <button type="button" class="math-btn" onclick="insertSubscriptTemplate('practice-question')">Индекс</button>
+                                <button type="button" class="math-btn" onclick="insertLogTemplate('practice-question')">logₐb</button>
+                                <button type="button" class="math-btn" onclick="clearTextarea('practice-question')">Очистить</button>
+                            </div>
+                            <textarea id="example-statement" class="form-control" rows="3" placeholder="Введите условие примера..."></textarea>
+                            <div class="help-text">💡 Используйте кнопки для вставки математических символов</div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Решение:</label>
+                        <div class="editor-container">
+                            <div class="math-toolbar">
+                                <button type="button" class="math-btn" data-insert=" + ">+</button>
+                                <button type="button" class="math-btn" data-insert=" - ">-</button>
+                                <button type="button" class="math-btn" data-insert=" × ">×</button>
+                                <button type="button" class="math-btn" data-insert=" ÷ ">÷</button>
+                                <button type="button" class="math-btn" data-insert=" = ">=</button>
+                                <button type="button" class="math-btn" data-insert=" ≠ ">≠</button>
+                                <button type="button" class="math-btn" data-insert="·">·</button>
+                                <button type="button" class="math-btn" data-insert="⁰">⁰</button>
+                                <button type="button" class="math-btn" data-insert="¹">¹</button>
+                                <button type="button" class="math-btn" data-insert="²">²</button>
+                                <button type="button" class="math-btn" data-insert="³">³</button>
+                                <button type="button" class="math-btn" data-insert="⁴">⁴</button>
+                                <button type="button" class="math-btn" data-insert="⁵">⁵</button>
+                                <button type="button" class="math-btn" data-insert="⁶">⁶</button>
+                                <button type="button" class="math-btn" data-insert="⁷">⁷</button>
+                                <button type="button" class="math-btn" data-insert="⁸">⁸</button>
+                                <button type="button" class="math-btn" data-insert="⁹">⁹</button>
+                                <button type="button" class="math-btn" data-insert="ˣ">ˣ</button>
+                                <button type="button" class="math-btn" data-insert="⁺">⁺</button>
+                                <button type="button" class="math-btn" data-insert="⁻">⁻</button>
+                                <button type="button" class="math-btn" data-insert="⁽">⁽</button>
+                                <button type="button" class="math-btn" data-insert="⁾">⁾</button>
+                                <button type="button" class="math-btn" data-insert="π">π</button>
+                                <button type="button" class="math-btn" data-insert="√">√</button>
+                                <button type="button" class="math-btn" data-insert="≥">≥</button>
+                                <button type="button" class="math-btn" data-insert="≤">≤</button>
+                                <button type="button" class="math-btn" data-insert="∞">∞</button>
+                                <button type="button" class="math-btn" data-insert="₀">₀</button>
+                                <button type="button" class="math-btn" data-insert="₁">₁</button>
+                                <button type="button" class="math-btn" data-insert="₂">₂</button>
+                                <button type="button" class="math-btn" data-insert="₃">₃</button>
+                                <button type="button" class="math-btn" data-insert="₄">₄</button>
+                                <button type="button" class="math-btn" data-insert="₅">₅</button>
+                                <button type="button" class="math-btn" data-insert="₆">₆</button>
+                                <button type="button" class="math-btn" data-insert="₇">₇</button>
+                                <button type="button" class="math-btn" data-insert="₈">₈</button>
+                                <button type="button" class="math-btn" data-insert="₉">₉</button>
+                                <button type="button" class="math-btn" onclick="insertSinTemplate('textarea-id')">sin</button>
+                                <button type="button" class="math-btn" onclick="insertCosTemplate('textarea-id')">cos</button>
+                                <button type="button" class="math-btn" onclick="insertFractionTemplate('practice-question')">Дробь</button>
+                                <button type="button" class="math-btn" onclick="insertPowerTemplate('practice-question')">Степень</button>
+                                <button type="button" class="math-btn" onclick="insertSubscriptTemplate('practice-question')">Индекс</button>
+                                <button type="button" class="math-btn" onclick="insertLogTemplate('practice-question')">logₐb</button>
+                                <button type="button" class="math-btn" onclick="clearTextarea('practice-question')">Очистить</button>
+                            </div>
+                            <textarea id="example-solution" class="form-control" rows="6" placeholder="Введите подробное решение..."></textarea>
+                            <div class="help-text">💡 Используйте кнопки для вставки математических символов</div>
+                        </div>
+                    </div>
+                    <button id="add-example-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Добавить пример</button>
+                </div>
+                
+                <div class="admin-section">
+                    <h3><i class="fas fa-edit"></i> Существующие примеры</h3>
+                    <div id="existing-examples-list" class="admin-list"></div>
+                </div>
+            </div>
+            
+            <div id="edit-practice" class="admin-tab-content">
+                <div class="admin-section">
+                    <h3><i class="fas fa-plus"></i> Добавить новое задание</h3>
+                    <div class="form-group">
+                        <label>Раздел:</label>
+                        <select id="practice-task-select" class="form-control">
+                            <option value="13">Задание 13: Уравнения</option>
+                            <option value="15">Задание 15: Неравенства</option>
+                            <option value="18">Задание 18: Параметры</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Источник:</label>
+                        <input type="text" id="practice-source" class="form-control" placeholder="Например: Реальное ЕГЭ 2023">
+                    </div>
+                    <div class="form-group">
+                        <label>Сложность:</label>
+                        <select id="practice-difficulty" class="form-control">
+                            <option value="easy">Легкое</option>
+                            <option value="medium">Среднее</option>
+                            <option value="hard">Тяжелое</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Вопрос:</label>
+                        <div class="editor-container">
+                            <div class="math-toolbar">
+                                <button type="button" class="math-btn" data-insert=" + ">+</button>
+                                <button type="button" class="math-btn" data-insert=" - ">-</button>
+                                <button type="button" class="math-btn" data-insert=" × ">×</button>
+                                <button type="button" class="math-btn" data-insert=" ÷ ">÷</button>
+                                <button type="button" class="math-btn" data-insert=" = ">=</button>
+                                <button type="button" class="math-btn" data-insert=" ≠ ">≠</button>
+                                <button type="button" class="math-btn" data-insert="·">·</button>
+                                <button type="button" class="math-btn" data-insert="⁰">⁰</button>
+                                <button type="button" class="math-btn" data-insert="¹">¹</button>
+                                <button type="button" class="math-btn" data-insert="²">²</button>
+                                <button type="button" class="math-btn" data-insert="³">³</button>
+                                <button type="button" class="math-btn" data-insert="⁴">⁴</button>
+                                <button type="button" class="math-btn" data-insert="⁵">⁵</button>
+                                <button type="button" class="math-btn" data-insert="⁶">⁶</button>
+                                <button type="button" class="math-btn" data-insert="⁷">⁷</button>
+                                <button type="button" class="math-btn" data-insert="⁸">⁸</button>
+                                <button type="button" class="math-btn" data-insert="⁹">⁹</button>
+                                <button type="button" class="math-btn" data-insert="ˣ">ˣ</button>
+                                <button type="button" class="math-btn" data-insert="⁺">⁺</button>
+                                <button type="button" class="math-btn" data-insert="⁻">⁻</button>
+                                <button type="button" class="math-btn" data-insert="⁽">⁽</button>
+                                <button type="button" class="math-btn" data-insert="⁾">⁾</button>
+                                <button type="button" class="math-btn" data-insert="π">π</button>
+                                <button type="button" class="math-btn" data-insert="√">√</button>
+                                <button type="button" class="math-btn" data-insert="≥">≥</button>
+                                <button type="button" class="math-btn" data-insert="≤">≤</button>
+                                <button type="button" class="math-btn" data-insert="∞">∞</button>
+                                <button type="button" class="math-btn" data-insert="₀">₀</button>
+                                <button type="button" class="math-btn" data-insert="₁">₁</button>
+                                <button type="button" class="math-btn" data-insert="₂">₂</button>
+                                <button type="button" class="math-btn" data-insert="₃">₃</button>
+                                <button type="button" class="math-btn" data-insert="₄">₄</button>
+                                <button type="button" class="math-btn" data-insert="₅">₅</button>
+                                <button type="button" class="math-btn" data-insert="₆">₆</button>
+                                <button type="button" class="math-btn" data-insert="₇">₇</button>
+                                <button type="button" class="math-btn" data-insert="₈">₈</button>
+                                <button type="button" class="math-btn" data-insert="₉">₉</button>
+                                <button type="button" class="math-btn" onclick="insertSinTemplate('textarea-id')">sin</button>
+                                <button type="button" class="math-btn" onclick="insertCosTemplate('textarea-id')">cos</button>
+                                <button type="button" class="math-btn" onclick="insertFractionTemplate('practice-question')">Дробь</button>
+                                <button type="button" class="math-btn" onclick="insertPowerTemplate('practice-question')">Степень</button>
+                                <button type="button" class="math-btn" onclick="insertSubscriptTemplate('practice-question')">Индекс</button>
+                                <button type="button" class="math-btn" onclick="insertLogTemplate('practice-question')">logₐb</button>
+                                <button type="button" class="math-btn" onclick="clearTextarea('practice-question')">Очистить</button>
+                            </div>
+                            <textarea id="practice-question" class="form-control" rows="4" placeholder="Введите текст задания..."></textarea>
+                            <div class="help-text">💡 Используйте кнопки для вставки математических символов</div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ответ и решение:</label>
+                        <div class="editor-container">
+                            <div class="math-toolbar">
+                                <button type="button" class="math-btn" data-insert=" + ">+</button>
+                                <button type="button" class="math-btn" data-insert=" - ">-</button>
+                                <button type="button" class="math-btn" data-insert=" × ">×</button>
+                                <button type="button" class="math-btn" data-insert=" ÷ ">÷</button>
+                                <button type="button" class="math-btn" data-insert=" = ">=</button>
+                                <button type="button" class="math-btn" data-insert=" ≠ ">≠</button>
+                                <button type="button" class="math-btn" data-insert="·">·</button>
+                                <button type="button" class="math-btn" data-insert="⁰">⁰</button>
+                                <button type="button" class="math-btn" data-insert="¹">¹</button>
+                                <button type="button" class="math-btn" data-insert="²">²</button>
+                                <button type="button" class="math-btn" data-insert="³">³</button>
+                                <button type="button" class="math-btn" data-insert="⁴">⁴</button>
+                                <button type="button" class="math-btn" data-insert="⁵">⁵</button>
+                                <button type="button" class="math-btn" data-insert="⁶">⁶</button>
+                                <button type="button" class="math-btn" data-insert="⁷">⁷</button>
+                                <button type="button" class="math-btn" data-insert="⁸">⁸</button>
+                                <button type="button" class="math-btn" data-insert="⁹">⁹</button>
+                                <button type="button" class="math-btn" data-insert="ˣ">ˣ</button>
+                                <button type="button" class="math-btn" data-insert="⁺">⁺</button>
+                                <button type="button" class="math-btn" data-insert="⁻">⁻</button>
+                                <button type="button" class="math-btn" data-insert="⁽">⁽</button>
+                                <button type="button" class="math-btn" data-insert="⁾">⁾</button>
+                                <button type="button" class="math-btn" data-insert="π">π</button>
+                                <button type="button" class="math-btn" data-insert="√">√</button>
+                                <button type="button" class="math-btn" data-insert="≥">≥</button>
+                                <button type="button" class="math-btn" data-insert="≤">≤</button>
+                                <button type="button" class="math-btn" data-insert="∞">∞</button>
+                                <button type="button" class="math-btn" onclick="insertSinTemplate('textarea-id')">sin</button>
+                                <button type="button" class="math-btn" onclick="insertCosTemplate('textarea-id')">cos</button>
+                                <button type="button" class="math-btn" onclick="insertFractionTemplate('practice-question')">Дробь</button>
+                                <button type="button" class="math-btn" onclick="insertPowerTemplate('practice-question')">Степень</button>
+                                <button type="button" class="math-btn" onclick="insertSubscriptTemplate('practice-question')">Индекс</button>
+                                <button type="button" class="math-btn" onclick="insertLogTemplate('practice-question')">logₐb</button>
+                                <button type="button" class="math-btn" onclick="clearTextarea('practice-question')">Очистить</button>
+                            </div>
+                            <textarea id="practice-answer" class="form-control" rows="6" placeholder="Введите ответ и подробное решение..."></textarea>
+                            <div class="help-text">💡 Используйте кнопки для вставки математических символов</div>
+                        </div>
+                    </div>
+                    <button id="add-practice-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Добавить задание</button>
+                </div>
+                
+                <div class="admin-section">
+                    <h3><i class="fas fa-edit"></i> Существующие задания</h3>
+                    <div id="existing-practice-list" class="admin-list"></div>
+                </div>
+            </div>
+            
+            <div id="edit-theory" class="admin-tab-content">
+                <div class="admin-section">
+                    <h3><i class="fas fa-edit"></i> Редактировать теорию</h3>
+                    <div class="form-group">
+                        <label>Раздел:</label>
+                        <select id="theory-task-select" class="form-control">
+                            <option value="13">Задание 13: Уравнения</option>
+                            <option value="15">Задание 15: Неравенства</option>
+                            <option value="18">Задание 18: Параметры</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип контента:</label>
+                        <select id="theory-type" class="form-control">
+                            <option value="theory">Теория</option>
+                            <option value="algorithm">Алгоритм</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Содержимое:</label>
+                        <div class="editor-container">
+                            <div class="math-toolbar">
+                                <button type="button" class="math-btn" data-insert=" + ">+</button>
+                                <button type="button" class="math-btn" data-insert=" - ">-</button>
+                                <button type="button" class="math-btn" data-insert=" × ">×</button>
+                                <button type="button" class="math-btn" data-insert=" ÷ ">÷</button>
+                                <button type="button" class="math-btn" data-insert=" = ">=</button>
+                                <button type="button" class="math-btn" data-insert=" ≠ ">≠</button>
+                                <button type="button" class="math-btn" data-insert="·">·</button>
+                                <button type="button" class="math-btn" data-insert="⁰">⁰</button>
+                                <button type="button" class="math-btn" data-insert="¹">¹</button>
+                                <button type="button" class="math-btn" data-insert="²">²</button>
+                                <button type="button" class="math-btn" data-insert="³">³</button>
+                                <button type="button" class="math-btn" data-insert="⁴">⁴</button>
+                                <button type="button" class="math-btn" data-insert="⁵">⁵</button>
+                                <button type="button" class="math-btn" data-insert="⁶">⁶</button>
+                                <button type="button" class="math-btn" data-insert="⁷">⁷</button>
+                                <button type="button" class="math-btn" data-insert="⁸">⁸</button>
+                                <button type="button" class="math-btn" data-insert="⁹">⁹</button>
+                                <button type="button" class="math-btn" data-insert="ˣ">ˣ</button>
+                                <button type="button" class="math-btn" data-insert="⁺">⁺</button>
+                                <button type="button" class="math-btn" data-insert="⁻">⁻</button>
+                                <button type="button" class="math-btn" data-insert="⁽">⁽</button>
+                                <button type="button" class="math-btn" data-insert="⁾">⁾</button>
+                                <button type="button" class="math-btn" data-insert="π">π</button>
+                                <button type="button" class="math-btn" data-insert="√">√</button>
+                                <button type="button" class="math-btn" data-insert="≥">≥</button>
+                                <button type="button" class="math-btn" data-insert="≤">≤</button>
+                                <button type="button" class="math-btn" data-insert="∞">∞</button>
+                                <button type="button" class="math-btn" onclick="insertSinTemplate('textarea-id')">sin</button>
+                                <button type="button" class="math-btn" onclick="insertCosTemplate('textarea-id')">cos</button>
+                                <button type="button" class="math-btn" onclick="insertFractionTemplate('practice-question')">Дробь</button>
+                                <button type="button" class="math-btn" onclick="insertPowerTemplate('practice-question')">Степень</button>
+                                <button type="button" class="math-btn" onclick="insertSubscriptTemplate('practice-question')">Индекс</button>
+                                <button type="button" class="math-btn" onclick="insertLogTemplate('practice-question')">logₐb</button>
+                                <button type="button" class="math-btn" onclick="clearTextarea('practice-question')">Очистить</button>
+                            </div>
+                            <textarea id="theory-content-editor" class="form-control" rows="12"></textarea>
+                            <div class="help-text">💡 Используйте кнопки для вставки математических символов</div>
+                        </div>
+                    </div>
+                    <button id="save-theory-btn" class="btn btn-primary"><i class="fas fa-save"></i> Сохранить изменения</button>
+                </div>
+            </div>
+
+            <div id="edit-test" class="admin-tab-content">
+                <div class="admin-section">
+                    <h3><i class="fas fa-plus-circle"></i> Добавить вопрос в итоговый тест</h3>
+                    <div class="form-group">
+                        <label>Текст вопроса:</label>
+                        <textarea id="test-question-text" class="form-control" rows="3" placeholder="Введите условие задачи..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Варианты ответов (через запятую):</label>
+                        <input type="text" id="test-options" class="form-control" placeholder="Вариант 1, Вариант 2, Вариант 3, Вариант 4">
+                    </div>
+                    <div class="form-group">
+                        <label>Правильный ответ (текст):</label>
+                        <input type="text" id="test-correct" class="form-control" placeholder="Например: Вариант 1">
+                    </div>
+                    <div class="form-group">
+                        <label>Решение/Пояснение:</label>
+                        <textarea id="test-explanation" class="form-control" rows="4" placeholder="Подробное решение..."></textarea>
+                    </div>
+                    <button id="add-test-question-btn" class="btn btn-primary"><i class="fas fa-save"></i> Добавить вопрос</button>
+                </div>
+                
+                <div class="admin-section">
+                    <h3><i class="fas fa-list"></i> Вопросы теста</h3>
+                    <div id="test-questions-list" class="admin-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rutube-panel">
+        <a href="https://rutube.ru/channel/75130349/videos/" target="_blank" class="rutube-link">
+            <i class="fas fa-video"></i> 
+            <span>Перейти на мой канал на Rutube</span>
+        </a>
+    </div>
+
+    <header>
+        <div class="header-content">
+            <div class="header-top">
+                <h1><i class="fas fa-calculator"></i> Курс подготовки к ЕГЭ по математике</h1>
+                <div class="user-section">
+                    <button id="auth-button" class="btn btn-outline"><i class="fas fa-user"></i> Войти</button>
+                    <div id="user-info" class="user-info hidden">
+                        <span id="user-name"></span>
+                        <button id="logout-button" class="btn btn-small"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+                    </div>
+                    <button id="admin-button" class="btn btn-outline hidden"><i class="fas fa-cog"></i> Админ-панель</button>
+                </div>
+            </div>
+            <p><i class="fas fa-graduation-cap"></i> Профильный уровень • Задания 13, 15, 18 + Итоговый тест</p>
+            
+            <div id="rating-section" class="rating-section hidden">
+                <h3><i class="fas fa-chart-line"></i> Ваш рейтинг</h3>
+                <div class="rating-stats">
+                    <div class="stat-item">
+                        <span class="stat-label"><i class="fas fa-check-circle"></i> Выполнено:</span>
+                        <span id="completed-tasks" class="stat-value">0/0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label"><i class="fas fa-percentage"></i> Процент:</span>
+                        <span id="progress-percent" class="stat-value">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label"><i class="fas fa-trophy"></i> Уровень:</span>
+                        <span id="user-level" class="stat-value">Новичок</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                
+                <div class="section-progress">
+                    <div class="progress-section">
+                        <h4>Задание 13</h4>
+                        <div class="mini-progress-bar"><div id="progress-13" class="mini-progress-fill" style="width: 0%"></div></div>
+                        <span id="completed-13">0/0</span>
+                    </div>
+                    <div class="progress-section">
+                        <h4>Задание 15</h4>
+                        <div class="mini-progress-bar"><div id="progress-15" class="mini-progress-fill" style="width: 0%"></div></div>
+                        <span id="completed-15">0/0</span>
+                    </div>
+                    <div class="progress-section">
+                        <h4>Задание 18</h4>
+                        <div class="mini-progress-bar"><div id="progress-18" class="mini-progress-fill" style="width: 0%"></div></div>
+                        <span id="completed-18">0/0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="javascript:void(0)" class="nav-link active" data-task="13"><i class="fas fa-equals"></i> Задание 13 (Уравнения)</a></li>
+            <li><a href="javascript:void(0)" class="nav-link" data-task="15"><i class="fas fa-not-equal"></i> Задание 15 (Неравенства)</a></li>
+            <li><a href="javascript:void(0)" class="nav-link" data-task="18"><i class="fas fa-sliders-h"></i> Задание 18 (Параметры)</a></li>
+            <li><a href="javascript:void(0)" class="nav-link" data-task="test"><i class="fas fa-clipboard-list"></i> Итоговый тест</a></li>
+        </ul>
+        
+        <div class="completion-filter">
+            <button id="show-all-tasks" class="filter-btn active">Все задания</button>
+            <button id="show-completed-tasks" class="filter-btn">Выполненные</button>
+            <button id="show-incomplete-tasks" class="filter-btn">Невыполненные</button>
+        </div>
+    </nav>
+
+    <main>
+        <section id="task-info">
+            <div class="task-header">
+                <h2 id="task-title">Задание 13: Уравнения</h2>
+                <div class="task-progress">
+                    <span id="current-task">1</span> из <span id="total-tasks">9</span>
+                    <button id="mark-completed" class="btn-mark-completed" title="Отметить как выполненное">
+                        <i class="far fa-check-circle"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="accordion">
+                <div class="accordion-item active">
+                    <div class="accordion-header">
+                        <h3><i class="fas fa-book"></i> Теория</h3>
+                        <span class="accordion-icon">+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div id="theory-content" class="content-box"></div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <h3><i class="fas fa-cogs"></i> Алгоритм решения</h3>
+                        <span class="accordion-icon">+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div id="algorithm-content" class="content-box"></div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <h3><i class="fas fa-list-ol"></i> Разобранные примеры</h3>
+                        <span class="accordion-icon">+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div id="examples-content" class="content-box"></div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Типичные ошибки</h3>
+                        <span class="accordion-icon">+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="mistakes-section">
+                            <div class="mistakes-header">
+                                <h4><i class="fas fa-exclamation-circle"></i> Запишите свои типичные ошибки</h4>
+                                <p>Добавляйте ошибки, которые часто совершаете, чтобы работать над ними</p>
+                            </div>
+                            
+                            <div class="mistakes-controls">
+                                <button id="add-text-mistake" class="btn btn-outline"><i class="fas fa-edit"></i> Добавить текстовую ошибку</button>
+                                <button id="add-image-mistake" class="btn btn-outline"><i class="fas fa-image"></i> Добавить фото ошибки</button>
+                                <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                                <button id="clear-mistakes-btn" class="btn btn-outline"><i class="fas fa-trash"></i> Очистить все</button>
+                                <button id="mistakes-stats-btn" class="btn btn-outline"><i class="fas fa-chart-bar"></i> Статистика</button>
+                            </div>
+                            
+                            <div id="mistakes-container" class="mistakes-container">
+                                <div class="empty-mistakes">
+                                    <i class="fas fa-clipboard-list"></i>
+                                    <p>Пока нет добавленных ошибки. Добавьте первую!</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mistakes-templates">
+                                <div class="mistake-item template" id="text-mistake-template">
+                                    <div class="mistake-header">
+                                        <span class="mistake-date"></span>
+                                        <button class="btn-delete-mistake"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                    <div class="mistake-content">
+                                        <textarea class="mistake-text" placeholder="Опишите типичную ошибку..."></textarea>
+                                    </div>
+                                </div>
+                                
+                                <div class="mistake-item template" id="image-mistake-template">
+                                    <div class="mistake-header">
+                                        <span class="mistake-date"></span>
+                                        <button class="btn-delete-mistake"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                    <div class="mistake-content">
+                                        <img class="mistake-image" src="" alt="Ошибка">
+                                        <textarea class="mistake-caption" placeholder="Описание ошибки..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <h3><i class="fas fa-bullseye"></i> Практика</h3>
+                        <span class="accordion-icon">+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div id="practice-content" class="content-box"></div>
+                        <div style="text-align: center; margin: 15px 0;" id="trig-circle-button-container">
+                            <button id="show-trig-circle" class="btn btn-primary" style="background: #1e667a; border-bottom: 4px solid #0e424e;">
+                                <i class="fas fa-circle"></i> Показать тригонометрическую окружность
+                            </button>
+                        </div>
+
+                        <div id="coord-plane-section" style="margin: 30px 0; border-top: 2px solid #e0e7ff; padding-top: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin:0; color:#334155;"><i class="fas fa-chart-line"></i> 📐 Интерактивная плоскость (с поддержкой y)</h4>
+                                <button id="coord_togglePlaneBtn" class="btn btn-primary" style="background: #3b82f6;"><i class="fas fa-eye"></i> Показать плоскость</button>
+                            </div>
+                            <div id="coord_planeContainer" style="display: none; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                                <div class="coord_container" style="background: white; border-radius: 24px; max-width: 1100px; width: fit-content; margin: 0 auto;">
+                                    <h1 style="font-size: 1.6rem; margin: 0 0 12px 0; color: #1e293b; font-weight: 500;">📐 Плоскость · Неявные функции + параметр a</h1>
+                                    <div style="color: #475569; margin-bottom: 20px; font-size: 0.95rem; border-left: 4px solid #3b82f6; padding-left: 12px; background: #f8fafc; border-radius: 0 8px 8px 0;">
+                                        <strong>Обновлено:</strong> Для модуля используйте <code>abs(...)</code>, например: <code>abs(x) + abs(y) = a</code>. График строится по кнопке «Обновить».
+                                    </div>
+
+                                    <div style="display: flex; flex-wrap: wrap; gap: 16px 24px; background: #f1f5f9; padding: 18px 20px; border-radius: 20px; margin-bottom: 20px; align-items: flex-end;">
+                                        <div style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%;">
+                                            <div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; min-width: 160px;">
+                                                <label style="font-size: 0.85rem; font-weight: 600; color: #334155;">🔵 f₁(x, y, a) или ур-ние с =</label>
+                                                <input type="text" id="coord_func1Input" value="x^2 + y^2 = a" placeholder="например: abs(x) = a" style="background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px; font-size: 0.95rem; outline: none;">
+                                            </div>
+                                            <div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; min-width: 160px;">
+                                                <label style="font-size: 0.85rem; font-weight: 600; color: #334155;">🔴 f₂(x, y, a) или ур-ние с =</label>
+                                                <input type="text" id="coord_func2Input" value="abs(x) = a" placeholder="например: abs(x) = a" style="background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px; font-size: 0.95rem; outline: none;">
+                                            </div>
+                                        </div>
+
+                                        <div style="display: flex; flex-direction: column; gap: 4px; min-width: 160px;">
+                                            <label style="font-size: 0.85rem; font-weight: 600; color: #334155;">⚙️ Параметр a (от –100 до 100)</label>
+                                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                                <input type="range" id="coord_aSlider" min="-100" max="100" step="0.1" value="4" style="flex: 1; height: 6px; border-radius: 10px; background: #cbd5e1;">
+                                                <div style="display: flex; gap: 5px; align-items: center;">
+                                                    <input type="number" id="coord_aInput" value="4" step="0.1" min="-100" max="100" style="width: 80px; background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 12px; font-size: 0.9rem; outline: none; text-align: center;">
+                                                    <span id="coord_aValue" style="background: #1e293b; color: white; padding: 4px 12px; border-radius: 40px; font-size: 0.9rem; font-weight: 600; min-width: 60px; text-align: center;">4.00</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style="display: flex; flex-direction: column; gap: 4px; min-width: 160px;">
+                                            <label style="font-size: 0.85rem; font-weight: 600; color: #334155;">↔️ X min / max</label>
+                                            <div style="display: flex; gap: 6px;">
+                                                <input type="number" id="coord_xMin" value="-10" step="any" style="width: 80px; background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px;">
+                                                <input type="number" id="coord_xMax" value="10" step="any" style="width: 80px; background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px;">
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 4px; min-width: 160px;">
+                                            <label style="font-size: 0.85rem; font-weight: 600; color: #334155;">↕️ Y min / max</label>
+                                            <div style="display: flex; gap: 6px;">
+                                                <input type="number" id="coord_yMin" value="-10" step="any" style="width: 80px; background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px;">
+                                                <input type="number" id="coord_yMax" value="10" step="any" style="width: 80px; background: white; border: 1px solid #cbd5e1; border-radius: 40px; padding: 8px 16px;">
+                                            </div>
+                                        </div>
+
+                                        <div class="graph-control-panel">
+                                            <button class="btn-update" id="coord_updateGraphBtn"><i class="fas fa-sync-alt"></i> Обновить график</button>
+                                            <button class="btn" id="coord_zoomInBtn" style="background: white; border: 1px solid #94a3b8; padding: 8px 18px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; color: #1e293b; cursor: pointer;">➕ Zoom in</button>
+                                            <button class="btn" id="coord_zoomOutBtn" style="background: white; border: 1px solid #94a3b8; padding: 8px 18px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; color: #1e293b; cursor: pointer;">➖ Zoom out</button>
+                                            <button class="btn primary" id="coord_resetViewBtn" style="background: #3b82f6; border-color: #2563eb; color: white; padding: 8px 18px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; cursor: pointer;">⟲ Сброс вида</button>
+                                        </div>
+                                    </div>
+
+                                    <canvas id="coord_graphCanvas" width="900" height="600" style="display: block; width: 100%; height: auto; background: #ffffff; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid #e2e8f0; cursor: crosshair; margin-top: 8px;"></canvas>
+
+                                    <div style="margin-top: 16px; font-size: 0.85rem; color: #64748b; display: flex; gap: 24px; flex-wrap: wrap;">
+                                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 30px;">🖱️ Колёсико — масштабирование</span>
+                                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 30px;">📐 Работает с x, y и a</span>
+                                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 30px;">⭕ Модуль: abs(...)</span>
+                                    </div>
+                                    <footer style="margin-top: 12px; font-size: 0.8rem; color: #94a3b8; text-align: center;">⚡ Нажми «Обновить график» после изменения формул или параметра.</footer>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="text-align: center; margin: 15px 0;" id="interval-constructor-button-container">
+                            <button id="show-interval-constructor" class="btn btn-primary" style="background: #10b981; border-bottom: 4px solid #0e7e5e;">
+                                <i class="fas fa-chart-line"></i> Метод интервалов
+                            </button>
+                        </div>
+                        
+                        <div id="interval-constructor-container" style="display: none; margin-top: 20px;">
+                            <div class="interval-constructor-card">
+                                <div class="header">
+                                    <h2>📊 Конструктор метода интервалов</h2>
+                                    <div class="hint">👆 Кликни на интервал чтобы поставить знак</div>
+                                </div>
+                                
+                                <div class="viz-container">
+                                    <div class="axis-label"><span>−∞</span><span>+∞</span></div>
+                                    <div class="number-line" id="intervalNumberLine"><div class="line-base"></div></div>
+                                </div>
+
+                                <div class="control-panel">
+                                    <div class="type-selector">
+                                        <div class="type-btn numerator active" id="typeNumerator">Числитель</div>
+                                        <div class="type-btn denominator" id="typeDenominator">Знаменатель</div>
+                                        <div class="type-btn coincident-numerator" id="typeCoincidentNumerator">Совпавший у числителя</div>
+                                        <div class="type-btn coincident-denominator" id="typeCoincidentDenominator">Совпавший у знаменателя</div>
+                                    </div>
+                                    
+                                    <div class="input-group">
+                                        <input type="number" id="intervalPointValue" placeholder="Значение" step="any" value="0">
+                                        <button class="btn btn-primary" id="intervalAddPointBtn">➕ Добавить</button>
+                                    </div>
+                                    
+                                    <div class="button-group" style="justify-content: flex-end;">
+                                        <button class="btn btn-secondary" id="intervalClearAllPoints">🗑️ Очистить всё</button>
+                                    </div>
+                                </div>
+
+                                <div class="points-list" id="intervalPointsList"></div>
+
+                                <div class="legend">
+                                    <div class="legend-item"><span class="legend-dot" style="background:#10b981; border-color:#10b981;"></span> Числитель (закрашен)</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:white; border-color:#ef4444;"></span> Знаменатель (выколот)</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:#3b82f6; border-color:#3b82f6;"></span> Совпавший у числителя (закрашен)</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:white; border-color:#f59e0b;"></span> Совпавший у знаменателя (всегда выколот)</div>
+                                </div>
+
+                                <div class="button-group" style="justify-content: center; margin-top: 20px;">
+                                    <button class="btn btn-secondary" id="intervalResetSignsBtn">🔄 Сбросить знаки</button>
+                                    <button class="btn btn-danger" id="intervalDeleteSelectedBtn">❌ Удалить выбранное</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="intervalSignModal" class="interval-modal-overlay" style="display: none;">
+                            <div class="interval-sign-modal">
+                                <h3>Выберите знак на интервале</h3>
+                                <div class="interval-sign-buttons">
+                                    <button class="interval-sign-btn interval-plus" id="intervalModalPlusBtn">+</button>
+                                    <button class="interval-sign-btn interval-minus" id="intervalModalMinusBtn">−</button>
+                                </div>
+                                <button class="interval-cancel-btn" id="intervalModalCancelBtn">Отмена</button>
+                            </div>
+                        </div>
+
+                        <div class="practice-controls">
+                            <button id="show-answer" class="btn btn-primary"><i class="fas fa-eye"></i> Показать ответ и решение</button>
+                            <button id="prev-task" class="btn" style="background: #e43b3b; color: white; border: none;"><i class="fas fa-arrow-left"></i> Предыдущее задание</button>
+                            <button id="next-task" class="btn btn-secondary"><i class="fas fa-arrow-right"></i> Следующее задание</button>
+                            <button id="mark-completed-practice" class="btn btn-success"><i class="far fa-check-circle"></i> Отметить как выполненное</button>
+                        </div>
+                        <div id="answer-content" class="answer-container hidden"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-section">
+                <h3><i class="fas fa-file-export"></i> Экспорт и импорт данных</h3>
+                <p>Экспортируйте все данные сайта (включая добавленные задания, ошибки, прогресс и вопросы теста) для резервного копирования или передачи другому человеку. Импортируйте данные, полученные от других.</p>
+                
+                <div class="data-controls">
+                    <button id="export-data-btn" class="btn btn-primary"><i class="fas fa-download"></i> Экспортировать всё в JSON</button>
+                    <button id="import-data-btn" class="btn btn-secondary"><i class="fas fa-upload"></i> Импортировать из JSON</button>
+                    <button id="reset-data-btn" class="btn btn-outline"><i class="fas fa-trash"></i> Сбросить все данные</button>
+                </div>
+                
+                <div class="data-instructions">
+                    <h4><i class="fas fa-info-circle"></i> Инструкция по передаче данных:</h4>
+                    <ol>
+                        <li>Нажмите "Экспортировать всё в JSON" - скачается файл со всеми данными сайта (задания, теория, ошибки, прогресс, тесты).</li>
+                        <li>Перешлите этот файл другому человеку или сохраните как бэкап.</li>
+                        <li>Он должен нажать "Импортировать из JSON" и выбрать ваш файл.</li>
+                        <li>Готово! Все данные (задания, ошибки, настройки, тесты) появятся у него на сайте.</li>
+                        <li><strong>Внимание:</strong> При импорте существующие данные будут перезаписаны.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p><i class="far fa-copyright"></i> 2025-2026 Курс подготовки к ЕГЭ. Дипломный проект.</p>
+        <p class="footer-info"><i class="fas fa-info-circle"></i> Все задания основаны на реальных вариантах ЕГЭ</p>
+    </footer>
+
+    <div id="trig-circle-modal" class="trig-circle-modal">
+        <div class="trig-circle-content">
+            <span class="trig-circle-close">&times;</span>
+            <div class="trig-circle-container">
+                <canvas id="trigCircleCanvas" width="600" height="600"></canvas>
+                
+                <div class="trig-circle-panel">
+                    <div class="trig-circle-angle">🎯 <span id="trigAngleValue">0.000π</span></div>
+                    <div class="trig-circle-controls">
+                        <span style="font-size:1.6rem;">P=</span>
+                        <select id="trigPeriodChoice"><option value="2">2π</option></select>
+                        <button id="trigResetButton">↺ СБРОС</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// ============ КОНФИГУРАЦИЯ СЕРВЕРА ============
+const API_URL = 'https://ege-server-3.onrender.com';
+
+async function apiRequest(endpoint, method = 'GET', data = null) {
+    try {
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (data) options.body = JSON.stringify(data);
+        const response = await fetch(`${API_URL}${endpoint}`, options);
+        return await response.json();
+    } catch (error) {
+        console.error('Ошибка API:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+        return null;
     }
 }
 
-function loadData() {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+// ============ СИСТЕМА АВТОРИЗАЦИИ ============
+class UserSystem {
+    constructor() {
+        this.currentUser = null;
+        this.loadFromLocalStorage();
+    }
+    loadFromLocalStorage() { const user = localStorage.getItem('currentUser'); if (user) this.currentUser = JSON.parse(user); }
+    saveToLocalStorage() { if (this.currentUser) localStorage.setItem('currentUser', JSON.stringify(this.currentUser)); }
+    async register(email, username, password) {
+        const result = await apiRequest('/api/register', 'POST', { email, username, password });
+        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
+        return { success: false, message: result?.message || 'Ошибка регистрации' };
+    }
+    async login(email, password) {
+        const result = await apiRequest('/api/login', 'POST', { email, password });
+        if (result && result.success) { this.currentUser = result.user; this.saveToLocalStorage(); return { success: true, user: result.user }; }
+        return { success: false, message: result?.message || 'Ошибка входа' };
+    }
+    logout() { this.currentUser = null; localStorage.removeItem('currentUser'); }
 }
 
-function saveData(data) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-initDatabase();
-
-// ============ АВТОРИЗАЦИЯ ============
-app.post('/api/register', (req, res) => {
-    const { email, username, password } = req.body;
-    const data = loadData();
-    
-    if (data.users.find(u => u.email === email)) {
-        return res.json({ success: false, message: 'Пользователь уже существует' });
+// ============ СИСТЕМА ВЫПОЛНЕННЫХ ЗАДАНИЙ ============
+class TaskCompletionSystem {
+    constructor() {
+        this.completedTasks = [];
+        this.currentUser = userSystem?.currentUser || null;
+        this.init();
     }
-    
-    data.users.push({ email, username, password, registeredAt: new Date().toISOString() });
-    data.completedTasks[email] = [];
-    saveData(data);
-    
-    res.json({ success: true, user: { email, username } });
-});
-
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    const data = loadData();
-    const user = data.users.find(u => u.email === email && u.password === password);
-    
-    if (user) {
-        res.json({ success: true, user: { email: user.email, username: user.username } });
-    } else {
-        res.json({ success: false, message: 'Неверный email или пароль' });
+    getTaskId(taskNumber, taskIndex) { return `${taskNumber}_${taskIndex}`; }
+    async loadCompletedTasksFromServer() {
+        if (!this.currentUser) return [];
+        const result = await apiRequest(`/api/completed/${encodeURIComponent(this.currentUser.email)}`);
+        this.completedTasks = result?.completed || [];
+        return this.completedTasks;
     }
-});
-
-// ============ ВЫПОЛНЕННЫЕ ЗАДАНИЯ ============
-app.get('/api/completed/:email', (req, res) => {
-    const { email } = req.params;
-    const data = loadData();
-    res.json({ completed: data.completedTasks[email] || [] });
-});
-
-app.post('/api/mark-completed', (req, res) => {
-    const { email, taskId } = req.body;
-    const data = loadData();
-    
-    if (!data.completedTasks[email]) data.completedTasks[email] = [];
-    if (!data.completedTasks[email].includes(taskId)) {
-        data.completedTasks[email].push(taskId);
-        saveData(data);
+    async markTaskAsCompleted(taskNumber, taskIndex) {
+        if (!this.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return false; }
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        const result = await apiRequest('/api/mark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
+        if (result && result.success) {
+            await this.loadCompletedTasksFromServer();
+            this.updateCompletionState(taskNumber, taskIndex);
+            this.updateStatistics();
+            showNotification('Задание отмечено как выполненное!', 'success');
+            createConfetti();
+            return true;
+        }
+        return false;
     }
-    res.json({ success: true });
-});
-
-app.post('/api/unmark-completed', (req, res) => {
-    const { email, taskId } = req.body;
-    const data = loadData();
-    
-    if (data.completedTasks[email]) {
-        const index = data.completedTasks[email].indexOf(taskId);
-        if (index > -1) {
-            data.completedTasks[email].splice(index, 1);
-            saveData(data);
+    async unmarkTask(taskNumber, taskIndex) {
+        if (!this.currentUser) return false;
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        const result = await apiRequest('/api/unmark-completed', 'POST', { email: this.currentUser.email, taskId: taskId });
+        if (result && result.success) {
+            await this.loadCompletedTasksFromServer();
+            this.updateCompletionState(taskNumber, taskIndex);
+            this.updateStatistics();
+            showNotification('Задание снято с выполнения', 'info');
+            return true;
+        }
+        return false;
+    }
+    isTaskCompleted(taskNumber, taskIndex) {
+        if (!this.currentUser) return false;
+        const taskId = this.getTaskId(taskNumber, taskIndex);
+        return this.completedTasks.includes(taskId);
+    }
+    async getStatistics() {
+        if (!this.currentUser) return { completed: 0, totalTasks: 0, percentage: 0, level: "Новичок" };
+        await this.loadCompletedTasksFromServer();
+        const completed = this.completedTasks.length;
+        const currentData = await loadCourseData();
+        let totalTasks = 0;
+        for (let taskNumber in currentData) totalTasks += currentData[taskNumber].practice.length;
+        const percentage = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
+        let level = "Новичок";
+        if (percentage >= 90) level = "Гений математики";
+        else if (percentage >= 80) level = "Эксперт";
+        else if (percentage >= 60) level = "Продвинутый";
+        else if (percentage >= 40) level = "Средний";
+        else if (percentage >= 20) level = "Начинающий";
+        return { completed, totalTasks, percentage, level };
+    }
+    updateCompletionState(taskNumber, taskIndex) {
+        const markButton1 = document.getElementById('mark-completed');
+        const markButton2 = document.getElementById('mark-completed-practice');
+        const isCompleted = this.isTaskCompleted(taskNumber, taskIndex);
+        if (markButton1) {
+            if (isCompleted) { markButton1.innerHTML = '<i class="fas fa-check-circle"></i>'; markButton1.classList.add('completed'); }
+            else { markButton1.innerHTML = '<i class="far fa-check-circle"></i>'; markButton1.classList.remove('completed'); }
+        }
+        if (markButton2) {
+            if (isCompleted) { markButton2.innerHTML = '<i class="fas fa-check-circle"></i> Выполнено'; markButton2.classList.add('completed'); }
+            else { markButton2.innerHTML = '<i class="far fa-check-circle"></i> Отметить как выполненное'; markButton2.classList.remove('completed'); }
+        }
+        this.updateNavigationIndicators();
+    }
+    updateNavigationIndicators() {
+        if (!this.currentUser) return;
+        [13, 15, 18].forEach(taskNumber => {
+            const navLinks = document.querySelectorAll(`.nav-link[data-task="${taskNumber}"]`);
+            const hasCompletedTasks = this.completedTasks.some(taskId => taskId.startsWith(`${taskNumber}_`));
+            navLinks.forEach(link => { if (hasCompletedTasks) link.classList.add('completed'); else link.classList.remove('completed'); });
+        });
+    }
+    async updateStatistics() {
+        const stats = await this.getStatistics();
+        if (document.getElementById('completed-tasks')) document.getElementById('completed-tasks').textContent = `${stats.completed}/${stats.totalTasks}`;
+        if (document.getElementById('progress-percent')) document.getElementById('progress-percent').textContent = `${stats.percentage}%`;
+        if (document.getElementById('user-level')) document.getElementById('user-level').textContent = stats.level;
+        const progressFill = document.getElementById('progress-fill');
+        if (progressFill) progressFill.style.width = `${stats.percentage}%`;
+        await this.updateSectionStatistics();
+    }
+    async updateSectionStatistics() {
+        if (!this.currentUser) return;
+        await this.loadCompletedTasksFromServer();
+        const currentData = await loadCourseData();
+        for (let taskNumber of [13, 15, 18]) {
+            const completedInSection = this.completedTasks.filter(taskId => taskId.startsWith(`${taskNumber}_`)).length;
+            const totalInSection = currentData[taskNumber]?.practice?.length || 0;
+            const percentage = totalInSection > 0 ? Math.round((completedInSection / totalInSection) * 100) : 0;
+            const progressBar = document.getElementById(`progress-${taskNumber}`);
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            const counter = document.getElementById(`completed-${taskNumber}`);
+            if (counter) counter.textContent = `${completedInSection}/${totalInSection}`;
         }
     }
-    res.json({ success: true });
-});
-
-// ============ АДМИН-ДАННЫЕ (ПОЛНАЯ ПОДДЕРЖКА) ============
-app.get('/api/admin-data', (req, res) => {
-    const data = loadData();
-    res.json({
-        adminExamples: data.adminExamples,
-        adminPractice: data.adminPractice,
-        adminTheory: data.adminTheory,
-        adminAlgorithm: data.adminAlgorithm,
-        testQuestions: data.testQuestions
-    });
-});
-
-app.post('/api/save-examples', (req, res) => {
-    const { taskNumber, examples } = req.body;
-    const data = loadData();
-    data.adminExamples[taskNumber] = examples;
-    saveData(data);
-    res.json({ success: true });
-});
-
-app.post('/api/save-practice', (req, res) => {
-    const { taskNumber, practice } = req.body;
-    const data = loadData();
-    data.adminPractice[taskNumber] = practice;
-    saveData(data);
-    res.json({ success: true });
-});
-
-app.post('/api/save-theory', (req, res) => {
-    const { taskNumber, type, content } = req.body;
-    const data = loadData();
-    if (type === 'theory') {
-        data.adminTheory[taskNumber] = content;
-    } else {
-        data.adminAlgorithm[taskNumber] = content;
+    setupMarkButtons() {
+        const markButton1 = document.getElementById('mark-completed');
+        const markButton2 = document.getElementById('mark-completed-practice');
+        if (markButton1) markButton1.addEventListener('click', () => this.handleMarkButtonClick());
+        if (markButton2) markButton2.addEventListener('click', () => this.handleMarkButtonClick());
     }
-    saveData(data);
-    res.json({ success: true });
-});
+    async handleMarkButtonClick() {
+        const taskNumber = parseInt(currentTask);
+        const taskIndex = currentTaskIndex[taskNumber];
+        if (this.isTaskCompleted(taskNumber, taskIndex)) await this.unmarkTask(taskNumber, taskIndex);
+        else await this.markTaskAsCompleted(taskNumber, taskIndex);
+    }
+    async init() {
+        await this.loadCompletedTasksFromServer();
+        this.setupMarkButtons();
+        await this.updateStatistics();
+    }
+}
 
-app.post('/api/save-test-questions', (req, res) => {
-    const { questions } = req.body;
-    const data = loadData();
-    data.testQuestions = questions;
-    saveData(data);
-    res.json({ success: true });
-});
+// ============ ЗАГРУЗКА ДАННЫХ С СЕРВЕРА ============
+async function loadCourseData() {
+    const result = await apiRequest('/api/admin-data');
+    if (result && result.adminExamples) {
+        // Сохраняем в localStorage для кэширования
+        localStorage.setItem('cachedCourseData', JSON.stringify(result));
+        return {
+            13: {
+                title: "Задание 13: Уравнения",
+                theory: result.adminTheory[13] || courseDataDefaults[13].theory,
+                algorithm: result.adminAlgorithm[13] || courseDataDefaults[13].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[13] || []),
+                practice: result.adminPractice[13] || []
+            },
+            15: {
+                title: "Задание 15: Неравенства",
+                theory: result.adminTheory[15] || courseDataDefaults[15].theory,
+                algorithm: result.adminAlgorithm[15] || courseDataDefaults[15].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[15] || []),
+                practice: result.adminPractice[15] || []
+            },
+            18: {
+                title: "Задание 18: Параметры",
+                theory: result.adminTheory[18] || courseDataDefaults[18].theory,
+                algorithm: result.adminAlgorithm[18] || courseDataDefaults[18].algorithm,
+                examples: buildExamplesHTML(result.adminExamples[18] || []),
+                practice: result.adminPractice[18] || []
+            }
+        };
+    }
+    return getDefaultCourseData();
+}
 
-// ============ ОШИБКИ ============
-app.get('/api/mistakes', (req, res) => {
-    const data = loadData();
-    res.json({
-        userMistakes: data.userMistakes,
-        sharedMistakes: data.sharedMistakes
+function buildExamplesHTML(examples) {
+    if (!examples.length) return `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><p>Примеры пока не добавлены. Администратор может добавить их в админ-панели.</p></div>`;
+    let html = `<div class="examples-section"><h4><i class="fas fa-list-ol"></i> Разобранные примеры</h4><div class="example-tabs">`;
+    const types = [...new Set(examples.map(e => e.type))];
+    types.forEach((type, i) => { html += `<button class="example-tab ${i === 0 ? 'active' : ''}" data-type="${type}">${getExampleTypeName(type)}</button>`; });
+    html += `</div><div class="examples-content">`;
+    examples.forEach(example => {
+        html += `<div class="example ${example.type}"><div class="example-header"><div class="example-title">${example.title}</div><div class="example-type"><i class="fas fa-${getExampleIcon(example.type)}"></i> ${getExampleTypeName(example.type)}</div></div><p><strong>Пример:</strong> ${example.statement}</p><div class="solution"><h4><i class="fas fa-list-ol"></i> Подробное решение:</h4>${example.solution}</div></div>`;
     });
-});
+    html += `</div></div>`;
+    return html;
+}
 
-app.post('/api/save-mistakes', (req, res) => {
-    const { userMistakes, sharedMistakes } = req.body;
-    const data = loadData();
-    if (userMistakes) data.userMistakes = userMistakes;
-    if (sharedMistakes) data.sharedMistakes = sharedMistakes;
-    saveData(data);
-    res.json({ success: true });
-});
+function getExampleIcon(type) {
+    const icons = { 'trigonometric': 'sin', 'exponential': 'superscript', 'logarithmic': 'log', 'rational': 'divide', 'inequality': 'not-equal', 'system': 'project-diagram', 'equation': 'equals', 'quadratic': 'square', 'graphical': 'chart-line' };
+    return icons[type] || 'calculator';
+}
 
-// ============ ПОЛНЫЙ ИМПОРТ ВСЕХ ДАННЫХ ============
-app.post('/api/import-all', (req, res) => {
-    const importedData = req.body;
-    const currentData = loadData();
+function getExampleTypeName(type) {
+    const names = { 'trigonometric': 'Тригонометрия', 'exponential': 'Показательное', 'logarithmic': 'Логарифмическое', 'rational': 'Рациональное', 'inequality': 'Неравенство', 'system': 'Система', 'equation': 'Уравнение', 'quadratic': 'Квадратное', 'graphical': 'Графический метод' };
+    return names[type] || type;
+}
+
+// ============ ДЕФОЛТНЫЕ ДАННЫЕ КУРСА (ЕСЛИ НЕТ НА СЕРВЕРЕ) ============
+const courseDataDefaults = {
+    13: {
+        title: "Задание 13: Уравнения",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 13?</h4><p>Это задание на решение уравнений повышенной сложности.</p><ul><li><strong>Тригонометрические уравнения</strong></li><li><strong>Показательные уравнения</strong></li><li><strong>Логарифмические уравнения</strong></li><li><strong>Комбинированные уравнения</strong></li></ul></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Анализ уравнения</strong><p>Определите тип уравнения.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    },
+    15: {
+        title: "Задание 15: Неравенства",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 15?</h4><p>Это задание на решение неравенств повышенной сложности.</p></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Определение ОДЗ</strong><p>Найдите область допустимых значений.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    },
+    18: {
+        title: "Задание 18: Параметры",
+        theory: `<div class="theory-content"><div class="theory-section"><h4><i class="fas fa-bullseye"></i> Что такое задание 18?</h4><p>Это задача с параметром.</p></div></div>`,
+        algorithm: `<div class="algorithm-steps"><div class="step"><div class="step-number">1</div><div class="step-content"><strong>Понимание условия</strong><p>Внимательно прочитайте условие.</p></div></div></div>`,
+        examples: "",
+        practice: []
+    }
+};
+
+function getDefaultCourseData() { return JSON.parse(JSON.stringify(courseDataDefaults)); }
+
+// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
+function showNotification(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i><span>${message}</span>`;
+    container.appendChild(notification);
+    setTimeout(() => notification.classList.add('show'), 10);
+    setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, duration);
+}
+
+function createConfetti() {
+    const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c'];
+    for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = `${Math.random() * 100}vw`;
+        confetti.style.top = '0';
+        const size = 5 + Math.random() * 10;
+        confetti.style.width = `${size}px`;
+        confetti.style.height = `${size}px`;
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        const duration = 1 + Math.random() * 2;
+        const delay = Math.random() * 0.5;
+        confetti.style.animation = `confetti-fall ${duration}s ease-out ${delay}s forwards`;
+        document.body.appendChild(confetti);
+        setTimeout(() => { if (confetti.parentNode) confetti.parentNode.removeChild(confetti); }, (duration + delay) * 1000);
+    }
+}
+
+// ============ ТРИГОНОМЕТРИЧЕСКАЯ ОКРУЖНОСТЬ ============
+(function() {
+    const trigModal = document.getElementById('trig-circle-modal');
+    const trigCloseBtn = document.querySelector('.trig-circle-close');
+    const trigShowBtn = document.getElementById('show-trig-circle');
     
-    // Обновляем только те поля, которые пришли
-    if (importedData.users) currentData.users = importedData.users;
-    if (importedData.completedTasks) currentData.completedTasks = importedData.completedTasks;
-    if (importedData.adminExamples) currentData.adminExamples = importedData.adminExamples;
-    if (importedData.adminPractice) currentData.adminPractice = importedData.adminPractice;
-    if (importedData.adminTheory) currentData.adminTheory = importedData.adminTheory;
-    if (importedData.adminAlgorithm) currentData.adminAlgorithm = importedData.adminAlgorithm;
-    if (importedData.testQuestions) currentData.testQuestions = importedData.testQuestions;
-    if (importedData.userMistakes) currentData.userMistakes = importedData.userMistakes;
-    if (importedData.sharedMistakes) currentData.sharedMistakes = importedData.sharedMistakes;
+    const canvas = document.getElementById('trigCircleCanvas');
+    if (!canvas) return;
     
-    saveData(currentData);
-    res.json({ success: true, message: 'Все данные импортированы' });
-});
+    const ctx = canvas.getContext('2d');
+    const angleSpan = document.getElementById('trigAngleValue');
+    const periodSelect = document.getElementById('trigPeriodChoice');
+    const resetBtn = document.getElementById('trigResetButton');
+    
+    const cx = 300, cy = 300;
+    const R = 190;
+    
+    const angles = [0, Math.PI/6, Math.PI/4, Math.PI/3, Math.PI/2, 2*Math.PI/3, 3*Math.PI/4, 5*Math.PI/6, Math.PI, 7*Math.PI/6, 5*Math.PI/4, 4*Math.PI/3, 3*Math.PI/2, 5*Math.PI/3, 7*Math.PI/4, 11*Math.PI/6];
+    const nums = [0, 11, 7, 5, 3, 4, 5, 7, 1, 5, 3, 2, 1, 1, 1, 1];
+    const denoms = [1, 6, 4, 3, 2, 3, 4, 6, 1, 6, 4, 3, 2, 3, 4, 6];
+    
+    let selectedPoint1 = null;
+    let selectedPoint2 = null;
+    let totalAngle = 0;
+    let dragging = false;
+    let lastMouseAngle = 0;
+    
+    function getAngleByIndex(index) { return angles[index]; }
+    
+    function drawArcBetween(startAngle, endAngle, color, isDashed = false) {
+        let start = startAngle;
+        let end = endAngle;
+        if (end >= start) end -= 2 * Math.PI;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, R - 10, start, end, true);
+        if (isDashed) { ctx.setLineDash([8, 8]); ctx.lineWidth = 6; }
+        else { ctx.setLineDash([]); ctx.lineWidth = 8; }
+        ctx.strokeStyle = color;
+        ctx.shadowBlur = isDashed ? 0 : 8;
+        ctx.shadowColor = color;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+    
+    function drawFullArc(point1, point2) {
+        let angle1 = point1.angle;
+        let angle2 = point2.angle;
+        let a2 = angle2;
+        if (a2 >= angle1) a2 -= 2 * Math.PI;
+        drawArcBetween(angle1, a2, '#ff3333', false);
+    }
+    
+    function drawArcWithProgress(point1, point2, currentAngle) {
+        let start = point1.angle;
+        let end = point2.angle;
+        let startForDraw = start;
+        let endForDraw = end;
+        let currentForDraw = currentAngle;
+        if (endForDraw <= startForDraw) endForDraw += 2 * Math.PI;
+        if (currentForDraw < startForDraw) currentForDraw += 2 * Math.PI;
+        if (currentForDraw > endForDraw) currentForDraw = endForDraw;
+        
+        if (currentForDraw > startForDraw) {
+            let s1 = startForDraw % (2 * Math.PI);
+            let e1 = currentForDraw % (2 * Math.PI);
+            if (e1 >= s1) e1 -= 2 * Math.PI;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, R - 10, s1, e1, true);
+            ctx.setLineDash([]);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#ff3333';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ff3333';
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        if (currentForDraw < endForDraw) {
+            let s2 = currentForDraw % (2 * Math.PI);
+            let e2 = endForDraw % (2 * Math.PI);
+            if (e2 >= s2) e2 -= 2 * Math.PI;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, R - 10, s2, e2, true);
+            ctx.setLineDash([8, 8]);
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#ff8888';
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+    }
+    
+    function getMouseAngle(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+        const x = (e.clientX - rect.left) * sx, y = (e.clientY - rect.top) * sy;
+        let a = Math.atan2(y - cy, x - cx);
+        if (a < 0) a += 2 * Math.PI;
+        return a;
+    }
+    
+    function findPointIndexByAngle(angle) {
+        let minDiff = 0.2;
+        let bestIndex = -1;
+        for (let i = 0; i < angles.length; i++) {
+            let diff = Math.abs(angles[i] - angle);
+            diff = Math.min(diff, 2 * Math.PI - diff);
+            if (diff < minDiff) { minDiff = diff; bestIndex = i; }
+        }
+        return bestIndex;
+    }
+    
+    canvas.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        const mouseAngle = getMouseAngle(e);
+        const pointIndex = findPointIndexByAngle(mouseAngle);
+        if (pointIndex !== -1) {
+            const pointAngle = getAngleByIndex(pointIndex);
+            if (selectedPoint1 === null) {
+                selectedPoint1 = { index: pointIndex, angle: pointAngle };
+                selectedPoint2 = null;
+                draw();
+                showNotification(`✓ Выбрана первая точка`, 'info');
+            } else if (selectedPoint2 === null) {
+                if (selectedPoint1.index !== pointIndex) {
+                    selectedPoint2 = { index: pointIndex, angle: pointAngle };
+                    draw();
+                    showNotification(`✓ Выбрана вторая точка, дуга создана`, 'success');
+                } else { showNotification(`⚠ Выберите другую точку`, 'warning'); }
+            } else {
+                selectedPoint1 = { index: pointIndex, angle: pointAngle };
+                selectedPoint2 = null;
+                draw();
+                showNotification(`✓ Выделение сброшено, выбрана новая первая точка`, 'info');
+            }
+        } else {
+            selectedPoint1 = null;
+            selectedPoint2 = null;
+            draw();
+            showNotification(`⟲ Выделение сброшено`, 'info');
+        }
+    });
+    
+    function draw() {
+        ctx.clearRect(0, 0, 600, 600);
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fffef9';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#a0b5c0';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#1e6a7a';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        if (selectedPoint1 && selectedPoint2) {
+            let currentAngle = (totalAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            let start = selectedPoint1.angle;
+            let end = selectedPoint2.angle;
+            let isBetween = false;
+            if (end > start) { if (currentAngle >= start || currentAngle <= end) isBetween = true; }
+            else { if (currentAngle >= end && currentAngle <= start) isBetween = true; }
+            if (isBetween) {
+                let currentForDraw = currentAngle;
+                if (end > start) {
+                    if (currentForDraw < start) currentForDraw += 2 * Math.PI;
+                    drawArcWithProgress({ angle: start }, { angle: end + 2 * Math.PI }, currentForDraw);
+                } else { drawArcWithProgress(selectedPoint1, selectedPoint2, currentAngle); }
+            } else { drawFullArc(selectedPoint1, selectedPoint2); }
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(cx - R - 5, cy);
+        ctx.lineTo(cx + R + 5, cy);
+        ctx.moveTo(cx, cy - R - 5);
+        ctx.lineTo(cx, cy + R + 5);
+        ctx.strokeStyle = '#5f8e9c';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        ctx.font = '18px Arial';
+        ctx.fillStyle = '#1e6e82';
+        ctx.fillText('1', cx + R - 25, cy - 15);
+        ctx.fillText('-1', cx - R + 15, cy - 15);
+        ctx.fillText('1', cx + 15, cy - R + 30);
+        ctx.fillText('-1', cx + 15, cy + R - 20);
+        
+        let rotationCount = Math.floor(Math.abs(totalAngle) / (2 * Math.PI));
+        ctx.font = 'bold 20px Arial';
+        ctx.fillStyle = '#1e6e82';
+        ctx.shadowBlur = 0;
+        ctx.fillText(`Оборот: ${rotationCount}`, cx - 70, cy - R - 40);
+        
+        const turns = Math.floor(-totalAngle / (2 * Math.PI));
+        
+        for (let i = 0; i < angles.length; i++) {
+            const a = angles[i];
+            const x = cx + R * Math.cos(a);
+            const y = cy + R * Math.sin(a);
+            const isFirst = selectedPoint1 && selectedPoint1.index === i;
+            const isSecond = selectedPoint2 && selectedPoint2.index === i;
+            ctx.beginPath();
+            ctx.arc(x, y, 7, 0, 2 * Math.PI);
+            if (isFirst || isSecond) { ctx.fillStyle = '#ff3333'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; }
+            else { ctx.fillStyle = '#01313c'; ctx.shadowBlur = 10; ctx.shadowColor = '#107890'; }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            if (isFirst || isSecond) {
+                ctx.beginPath();
+                ctx.arc(x, y, 9, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#ff6666';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            const angleOffset = 38;
+            const basePX = cx + (R + angleOffset) * Math.cos(a);
+            const basePY = cy + (R + angleOffset) * Math.sin(a);
+            let pX, pY, pAlign;
+            switch(i) {
+                case 0: pX = basePX + 14; pY = basePY - 20; pAlign = 'left'; break;
+                case 1: pX = basePX -10; pY = basePY - 22; pAlign = 'left'; break;
+                case 2: pX = basePX ; pY = basePY - 22; pAlign = 'left'; break;
+                case 3: pX = basePX ; pY = basePY - 20; pAlign = 'left'; break;
+                case 4: pX = basePX ; pY = basePY - 8; pAlign = 'center'; break;
+                case 5: pX = basePX +30; pY = basePY - 5; pAlign = 'right'; break;
+                case 6: pX = basePX +30; pY = basePY - 5; pAlign = 'right'; break;
+                case 7: pX = basePX +30; pY = basePY - 5; pAlign = 'right'; break;
+                case 8: pX = basePX +25; pY = basePY + 0; pAlign = 'right'; break;
+                case 9: pX = basePX +25; pY = basePY + 18; pAlign = 'right'; break;
+                case 10: pX = basePX +25; pY = basePY + 20; pAlign = 'right'; break;
+                case 11: pX = basePX +25; pY = basePY + 22; pAlign = 'right'; break;
+                case 12: pX = basePX + 0; pY = basePY + 22; pAlign = 'center'; break;
+                case 13: pX = basePX; pY = basePY + 22; pAlign = 'left'; break;
+                case 14: pX = basePX -5; pY = basePY + 20; pAlign = 'left'; break;
+                case 15: pX = basePX -10; pY = basePY + 18; pAlign = 'left'; break;
+                default: pX = basePX; pY = basePY; pAlign = 'center';
+            }
+            const displayNum = nums[i] + turns * 2 * denoms[i];
+            let angleLabel;
+            if (displayNum === 0) angleLabel = '0';
+            else if (denoms[i] === 1) angleLabel = displayNum + 'π';
+            else angleLabel = displayNum + 'π/' + denoms[i];
+            ctx.font = 'bold 22px "Times New Roman", serif';
+            ctx.fillStyle = '#002c38';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = 'white';
+            ctx.textAlign = pAlign;
+            ctx.fillText(angleLabel, pX, pY);
+            ctx.shadowBlur = 0;
+        }
+        
+        let displayAngle = (totalAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        let ax = cx + R * 0.97 * Math.cos(displayAngle);
+        let ay = cy + R * 0.97 * Math.sin(displayAngle);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(ax, ay);
+        ctx.strokeStyle = '#d03030';
+        ctx.lineWidth = 8;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#a02020';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - 26 * Math.cos(displayAngle - 0.5), ay - 26 * Math.sin(displayAngle - 0.5));
+        ctx.lineTo(ax - 26 * Math.cos(displayAngle + 0.5), ay - 26 * Math.sin(displayAngle + 0.5));
+        ctx.closePath();
+        ctx.fillStyle = '#b02020';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        angleSpan.innerText = (-totalAngle / Math.PI).toFixed(3) + 'π';
+    }
+    
+    function onMouseDown(e) { dragging = true; lastMouseAngle = getMouseAngle(e); canvas.style.cursor = 'grabbing'; }
+    function onMouseMove(e) {
+        if (!dragging) return;
+        let currentMouse = getMouseAngle(e);
+        let delta = currentMouse - lastMouseAngle;
+        if (delta > Math.PI) delta -= 2 * Math.PI;
+        if (delta < -Math.PI) delta += 2 * Math.PI;
+        totalAngle += delta;
+        lastMouseAngle = currentMouse;
+        draw();
+    }
+    function onMouseUp() { dragging = false; canvas.style.cursor = 'grab'; }
+    function onMouseLeave() { dragging = false; canvas.style.cursor = 'grab'; }
+    function reset() { totalAngle = 0; selectedPoint1 = null; selectedPoint2 = null; draw(); showNotification('⟲ Всё сброшено', 'info'); }
+    function onPeriodChange() { draw(); }
+    
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    if (periodSelect) periodSelect.addEventListener('change', onPeriodChange);
+    if (resetBtn) resetBtn.addEventListener('click', reset);
+    if (trigShowBtn) trigShowBtn.addEventListener('click', function() { trigModal.style.display = 'block'; reset(); });
+    if (trigCloseBtn) trigCloseBtn.addEventListener('click', function() { trigModal.style.display = 'none'; });
+    window.addEventListener('click', function(e) { if (e.target === trigModal) trigModal.style.display = 'none'; });
+    draw();
+})();
 
-app.listen(PORT, () => {
-    console.log(`✅ Сервер запущен на порту ${PORT}`);
-    console.log(`📁 Данные: ${DATA_FILE}`);
+// ============ МАТЕМАТИЧЕСКИЙ РЕДАКТОР ============
+let mathEditorInitialized = false;
+
+function insertAtCursor(textarea, text) {
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    textarea.value = value.substring(0, start) + text + value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    textarea.focus();
+}
+
+function clearTextarea(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { textarea.value = ''; textarea.focus(); showNotification('Поле очищено', 'info'); }
+}
+
+function insertFractionTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, '\\frac{числитель}{знаменатель}'); showNotification('Шаблон дроби вставлен', 'success'); }
+}
+
+function insertPowerTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, 'x^(степень)'); showNotification('Шаблон степени вставлен', 'success'); }
+}
+
+function insertSubscriptTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, 'a_(индекс)'); showNotification('Шаблон индекса вставлен', 'success'); }
+}
+
+function insertLogTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, '\\log_{основание}(аргумент)'); showNotification('Шаблон логарифма вставлен', 'success'); }
+}
+
+function insertSinTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, '\\sin(угол)'); showNotification('Шаблон синуса вставлен', 'success'); }
+}
+
+function insertCosTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, '\\cos(угол)'); showNotification('Шаблон косинуса вставлен', 'success'); }
+}
+
+function insertTanTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, '\\tan(угол)'); showNotification('Шаблон тангенса вставлен', 'success'); }
+}
+
+function initMathEditor() {
+    if (mathEditorInitialized) return;
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.math-btn[data-insert]')) {
+            const button = e.target.closest('.math-btn[data-insert]');
+            e.preventDefault();
+            e.stopPropagation();
+            const editorContainer = button.closest('.editor-container');
+            if (!editorContainer) return;
+            const textarea = editorContainer.querySelector('textarea');
+            if (!textarea) return;
+            const text = button.getAttribute('data-insert');
+            insertAtCursor(textarea, text);
+        }
+    });
+    document.querySelectorAll('.math-toolbar').forEach(toolbar => {
+        const textarea = toolbar.nextElementSibling;
+        if (!textarea || textarea.tagName !== 'TEXTAREA') return;
+        const textareaId = textarea.id;
+        toolbar.querySelectorAll('.math-btn').forEach(button => {
+            const onclickAttr = button.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes('textarea-id')) {
+                const newOnclick = onclickAttr.replace('textarea-id', textareaId);
+                button.setAttribute('onclick', newOnclick);
+                button.removeEventListener('click', () => {});
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (newOnclick.includes('insertFractionTemplate')) insertFractionTemplate(textareaId);
+                    else if (newOnclick.includes('insertPowerTemplate')) insertPowerTemplate(textareaId);
+                    else if (newOnclick.includes('insertSubscriptTemplate')) insertSubscriptTemplate(textareaId);
+                    else if (newOnclick.includes('insertLogTemplate')) insertLogTemplate(textareaId);
+                    else if (newOnclick.includes('insertSinTemplate')) insertSinTemplate(textareaId);
+                    else if (newOnclick.includes('insertCosTemplate')) insertCosTemplate(textareaId);
+                    else if (newOnclick.includes('insertTanTemplate')) insertTanTemplate(textareaId);
+                    else if (newOnclick.includes('clearTextarea')) clearTextarea(textareaId);
+                });
+            }
+        });
+    });
+    mathEditorInitialized = true;
+}
+
+function updateHTMLForMathEditor() {
+    const mathToolbars = document.querySelectorAll('.math-toolbar');
+    mathToolbars.forEach(toolbar => {
+        const textarea = toolbar.nextElementSibling;
+        if (!textarea || textarea.tagName !== 'TEXTAREA') return;
+        const textareaId = textarea.id;
+        const specialButtons = `<button type="button" class="math-btn special" onclick="insertFractionPowerTemplate('${textareaId}')"><i class="fas fa-superscript"></i><i class="fas fa-divide"></i> Дробь в степени</button>
+            <button type="button" class="math-btn special" onclick="insertNestedTemplate('${textareaId}')"><i class="fas fa-layer-group"></i> Индекс и степень</button>
+            <button type="button" class="math-btn special" onclick="insertComplexExpressionTemplate('${textareaId}')"><i class="fas fa-code"></i> Сложное</button>`;
+        if (!toolbar.innerHTML.includes('Дробь в степени')) toolbar.innerHTML += specialButtons;
+        const buttonConfigs = [
+            { selector: '[onclick*="insertFractionTemplate"]', func: 'insertFractionTemplate' },
+            { selector: '[onclick*="insertPowerTemplate"]', func: 'insertPowerTemplate' },
+            { selector: '[onclick*="insertSubscriptTemplate"]', func: 'insertSubscriptTemplate' },
+            { selector: '[onclick*="insertLogTemplate"]', func: 'insertLogTemplate' },
+            { selector: '[onclick*="insertSinTemplate"]', func: 'insertSinTemplate' },
+            { selector: '[onclick*="insertCosTemplate"]', func: 'insertCosTemplate' },
+            { selector: '[onclick*="insertTanTemplate"]', func: 'insertTanTemplate' },
+            { selector: '[onclick*="clearTextarea"]', func: 'clearTextarea' },
+            { selector: '[onclick*="insertFractionPowerTemplate"]', func: 'insertFractionPowerTemplate' },
+            { selector: '[onclick*="insertNestedTemplate"]', func: 'insertNestedTemplate' },
+            { selector: '[onclick*="insertComplexExpressionTemplate"]', func: 'insertComplexExpressionTemplate' }
+        ];
+        buttonConfigs.forEach(config => {
+            const button = toolbar.querySelector(config.selector);
+            if (button) {
+                if (config.func === 'insertPowerTemplate') { button.innerHTML = 'x^(ⁿ)'; button.title = 'Степень (используйте круглые скобки)'; }
+                if (config.func === 'insertSubscriptTemplate') { button.innerHTML = 'a_(n)'; button.title = 'Индекс (используйте круглые скобки)'; }
+                button.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    switch(config.func) {
+                        case 'insertFractionTemplate': insertFractionTemplate(textareaId); break;
+                        case 'insertPowerTemplate': insertPowerTemplate(textareaId); break;
+                        case 'insertSubscriptTemplate': insertSubscriptTemplate(textareaId); break;
+                        case 'insertLogTemplate': insertLogTemplate(textareaId); break;
+                        case 'insertSinTemplate': insertSinTemplate(textareaId); break;
+                        case 'insertCosTemplate': insertCosTemplate(textareaId); break;
+                        case 'insertTanTemplate': insertTanTemplate(textareaId); break;
+                        case 'clearTextarea': clearTextarea(textareaId); break;
+                        case 'insertFractionPowerTemplate': insertFractionPowerTemplate(textareaId); break;
+                        case 'insertNestedTemplate': insertNestedTemplate(textareaId); break;
+                        case 'insertComplexExpressionTemplate': insertComplexExpressionTemplate(textareaId); break;
+                    }
+                };
+            }
+        });
+        const helpText = toolbar.nextElementSibling?.nextElementSibling;
+        if (helpText && helpText.classList.contains('help-text')) {
+            helpText.innerHTML = '💡 Используйте круглые скобки () для степеней и индексов: x^(2), a_(n)';
+        }
+    });
+}
+
+function insertFractionPowerTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, 'x^(\\frac{числитель}{знаменатель})'); showNotification('Шаблон степени-дроби вставлен', 'success'); }
+}
+
+function insertNestedTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, 'x_(a)^(\\frac{b}{c})'); showNotification('Шаблон сложного выражения вставлен', 'success'); }
+}
+
+function insertComplexExpressionTemplate(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    if (textarea) { insertAtCursor(textarea, 'a_(n)^(m+1)'); showNotification('Шаблон сложного выражения вставлен', 'success'); }
+}
+
+function processMathExpressions() {
+    document.querySelectorAll('.math-processed').forEach(el => el.classList.remove('math-processed'));
+    document.querySelectorAll('.math-formula, .formula-item, .solution-step, .examples-section, .theory-content, .algorithm-steps, .practice-task, .solution, .answer-container, .content-box').forEach(element => {
+        if (element.classList.contains('math-processed')) return;
+        let html = element.innerHTML;
+        const originalHTML = html;
+        const processNestedExpressions = (text) => {
+            let tempCounter = 0;
+            const tempMap = {};
+            const fractionPattern = /<div class="math-fraction"><sup>([^<]+)<\/sup><sub>([^<]+)<\/sub><\/div>/g;
+            text = text.replace(fractionPattern, (match, num, den) => {
+                const key = `__FRACTION_${tempCounter++}__`;
+                tempMap[key] = match;
+                return key;
+            });
+            text = text.replace(/(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])\s*\/\s*(\d+|[a-zA-Zα-ωπ]|[\[\(][^\]\)]+[\]\)])/g, (match, num, den) => {
+                if (match.includes('\\frac') || match.includes('math-fraction')) return match;
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/\(([^)]+)\)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
+                num = num.replace(/^\(|\)$/g, ''); den = den.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/\(([^)]+)\)\s*\/\s*([^\(\s]+)/g, (match, num, den) => {
+                num = num.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/([^\(\s]+)\s*\/\s*\(([^)]+)\)/g, (match, num, den) => {
+                den = den.replace(/^\(|\)$/g, '');
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/\\log_\{([^}]+)\}\(([^)]+)\)/g, 'log<sub>$1</sub>($2)');
+            text = text.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, (match, num, den) => {
+                return `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`;
+            });
+            text = text.replace(/([a-zA-Zα-ωπ0-9]+)\^\(([^)]+)\)/g, (match, base, exp) => {
+                let restoredExp = exp;
+                Object.keys(tempMap).forEach(key => { if (restoredExp.includes(key)) restoredExp = restoredExp.replace(key, tempMap[key]); });
+                return `${base}<sup>${restoredExp}</sup>`;
+            });
+            text = text.replace(/([a-zA-Zα-ω0-9]+)_\(([^)]+)\)/g, (match, base, index) => {
+                let restoredIndex = index;
+                Object.keys(tempMap).forEach(key => { if (restoredIndex.includes(key)) restoredIndex = restoredIndex.replace(key, tempMap[key]); });
+                return `${base}<sub>${restoredIndex}</sub>`;
+            });
+            Object.keys(tempMap).forEach(key => { text = text.replace(key, tempMap[key]); });
+            return text;
+        };
+        html = processNestedExpressions(html);
+        html = html.replace(/(\d+)\/(\d+)/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
+        html = html.replace(/([a-zA-Z])\/([a-zA-Z])/g, (match, num, den) => `<div class="math-fraction"><sup>${num}</sup><sub>${den}</sub></div>`);
+        html = html.replace(/([a-zA-Zα-ωπ0-9]+)\^(\d+|[a-zA-Z])/g, '$1<sup>$2</sup>');
+        html = html.replace(/([a-zA-Zα-ω0-9]+)_(\d+|[a-zA-Z])/g, '$1<sub>$2</sub>');
+        html = html.replace(/\\sin\(([^)]+)\)/g, 'sin($1)');
+        html = html.replace(/\\cos\(([^)]+)\)/g, 'cos($1)');
+        html = html.replace(/\\tan\(([^)]+)\)/g, 'tan($1)');
+        html = html.replace(/\\sqrt\{([^}]+)\}/g, '√$1');
+        html = html.replace(/\\lim_\{([^}]+)\}/g, 'lim<sub>$1</sub>');
+        html = html.replace(/\\sum_\{([^}]+)\}/g, '∑<sub>$1</sub>');
+        html = html.replace(/\\int_\{([^}]+)\}/g, '∫<sub>$1</sub>');
+        if (html !== originalHTML) { element.innerHTML = html; element.classList.add('math-processed'); }
+    });
+}
+
+// ============ КОНСТРУКТОР МЕТОДА ИНТЕРВАЛОВ ============
+(function() {
+    const showIntervalBtn = document.getElementById('show-interval-constructor');
+    const intervalContainer = document.getElementById('interval-constructor-container');
+    const numberLineEl = document.getElementById('intervalNumberLine');
+    const pointsListEl = document.getElementById('intervalPointsList');
+    const typeNumerator = document.getElementById('typeNumerator');
+    const typeDenominator = document.getElementById('typeDenominator');
+    const typeCoincidentNumerator = document.getElementById('typeCoincidentNumerator');
+    const typeCoincidentDenominator = document.getElementById('typeCoincidentDenominator');
+    const pointValueInput = document.getElementById('intervalPointValue');
+    const addPointBtn = document.getElementById('intervalAddPointBtn');
+    const clearAllPoints = document.getElementById('intervalClearAllPoints');
+    const resetSignsBtn = document.getElementById('intervalResetSignsBtn');
+    const deleteSelectedBtn = document.getElementById('intervalDeleteSelectedBtn');
+    const signModal = document.getElementById('intervalSignModal');
+    const modalPlusBtn = document.getElementById('intervalModalPlusBtn');
+    const modalMinusBtn = document.getElementById('intervalModalMinusBtn');
+    const modalCancelBtn = document.getElementById('intervalModalCancelBtn');
+    if (!showIntervalBtn || !intervalContainer) return;
+    let points = [];
+    let currentType = 'numerator';
+    let selectedPointId = null;
+    let currentIntervalId = null;
+    let intervals = [];
+    const TYPES = { NUMERATOR: 'numerator', DENOMINATOR: 'denominator', COINCIDENT_NUMERATOR: 'coincident-numerator', COINCIDENT_DENOMINATOR: 'coincident-denominator' };
+    showIntervalBtn.addEventListener('click', function() { if (intervalContainer.style.display === 'none' || intervalContainer.style.display === '') { intervalContainer.style.display = 'block'; showIntervalBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть метод интервалов'; } else { intervalContainer.style.display = 'none'; showIntervalBtn.innerHTML = '<i class="fas fa-chart-line"></i> Метод интервалов'; } });
+    function setActiveType(type) { currentType = type; [typeNumerator, typeDenominator, typeCoincidentNumerator, typeCoincidentDenominator].forEach(btn => btn.classList.remove('active')); if (type === TYPES.NUMERATOR) typeNumerator.classList.add('active'); if (type === TYPES.DENOMINATOR) typeDenominator.classList.add('active'); if (type === TYPES.COINCIDENT_NUMERATOR) typeCoincidentNumerator.classList.add('active'); if (type === TYPES.COINCIDENT_DENOMINATOR) typeCoincidentDenominator.classList.add('active'); }
+    typeNumerator.addEventListener('click', () => setActiveType(TYPES.NUMERATOR));
+    typeDenominator.addEventListener('click', () => setActiveType(TYPES.DENOMINATOR));
+    typeCoincidentNumerator.addEventListener('click', () => setActiveType(TYPES.COINCIDENT_NUMERATOR));
+    typeCoincidentDenominator.addEventListener('click', () => setActiveType(TYPES.COINCIDENT_DENOMINATOR));
+    setActiveType(TYPES.NUMERATOR);
+    function addPoint() { const value = parseFloat(pointValueInput.value); if (isNaN(value)) { alert('Введите число'); return; } if (points.some(p => Math.abs(p.value - value) < 0.0001)) { alert('Такая точка уже есть'); return; } let defaultFilled = false; if (currentType === TYPES.COINCIDENT_NUMERATOR) defaultFilled = true; points.push({ id: Date.now() + Math.random(), value: value, type: currentType, filled: defaultFilled, label: `${value}` }); sortPoints(); updateIntervals(); renderAll(); }
+    function sortPoints() { points.sort((a, b) => a.value - b.value); }
+    function updateIntervals() { if (points.length === 0) { intervals = []; return; } intervals = []; intervals.push({ id: 'int_' + Date.now() + Math.random(), start: -Infinity, end: points[0].value, sign: null }); for (let i = 0; i < points.length - 1; i++) intervals.push({ id: 'int_' + Date.now() + Math.random() + i, start: points[i].value, end: points[i + 1].value, sign: null }); intervals.push({ id: 'int_' + Date.now() + Math.random() + 'last', start: points[points.length - 1].value, end: Infinity, sign: null }); }
+    function removePoint(id) { points = points.filter(p => p.id !== id); if (selectedPointId === id) selectedPointId = null; updateIntervals(); renderAll(); }
+    function toggleFilled(id) { const point = points.find(p => p.id === id); if (point && point.type === TYPES.COINCIDENT_NUMERATOR) { point.filled = !point.filled; renderAll(); } }
+    numberLineEl.addEventListener('click', function(event) { const rect = numberLineEl.getBoundingClientRect(); const x = event.clientX - rect.left; const leftOffset = 30; const totalWidth = numberLineEl.offsetWidth - 60; const minX = -5; const maxX = 10; const t = (x - leftOffset) / totalWidth; const value = minX + t * (maxX - minX); pointValueInput.value = Math.round(value * 100) / 100; addPoint(); });
+    function openSignModal(intervalId) { currentIntervalId = intervalId; signModal.style.display = 'flex'; }
+    function setSign(sign) { if (currentIntervalId) { const interval = intervals.find(i => i.id === currentIntervalId); if (interval) interval.sign = sign; } closeModal(); renderAll(); }
+    function closeModal() { signModal.style.display = 'none'; currentIntervalId = null; }
+    modalPlusBtn.addEventListener('click', () => setSign('+'));
+    modalMinusBtn.addEventListener('click', () => setSign('-'));
+    modalCancelBtn.addEventListener('click', closeModal);
+    signModal.addEventListener('click', (e) => { if (e.target === signModal) closeModal(); });
+    function deleteSelected() { if (selectedPointId) removePoint(selectedPointId); else alert('Выберите точку'); }
+    function resetSigns() { intervals.forEach(i => i.sign = null); renderAll(); }
+    addPointBtn.addEventListener('click', addPoint);
+    clearAllPoints.addEventListener('click', () => { points = []; selectedPointId = null; updateIntervals(); renderAll(); });
+    resetSignsBtn.addEventListener('click', resetSigns);
+    deleteSelectedBtn.addEventListener('click', deleteSelected);
+    window.handleIntervalRemovePoint = function(id) { removePoint(id); };
+    window.handleIntervalToggleFilled = function(id) { toggleFilled(id); setTimeout(() => renderPointsList(), 0); };
+    function renderAll() { const children = numberLineEl.children; for (let i = children.length - 1; i >= 0; i--) { if (!children[i].classList.contains('line-base')) children[i].remove(); } if (points.length > 0) { const values = points.map(p => p.value); const minVal = Math.min(...values, -3); const maxVal = Math.max(...values, 5); const padding = 2; const minX = minVal - padding; const maxX = maxVal + padding; const leftOffset = 30; const totalWidth = numberLineEl.offsetWidth - 60; function posFromValue(val) { if (val <= minX) return leftOffset; if (val >= maxX) return leftOffset + totalWidth; return leftOffset + ((val - minX) / (maxX - minX)) * totalWidth; } intervals.forEach(interval => { const startX = interval.start === -Infinity ? leftOffset : posFromValue(interval.start); const endX = interval.end === Infinity ? leftOffset + totalWidth : posFromValue(interval.end); const width = endX - startX; if (width <= 5) return; const div = document.createElement('div'); div.className = 'interval-area'; div.textContent = interval.sign || '?'; if (interval.sign) div.classList.add('has-sign'); div.style.left = startX + 'px'; div.style.width = width + 'px'; div.addEventListener('click', (e) => { e.stopPropagation(); openSignModal(interval.id); }); numberLineEl.appendChild(div); }); points.forEach(point => { const x = posFromValue(point.value); const div = document.createElement('div'); div.className = `point ${point.type}`; if (point.type === TYPES.COINCIDENT_NUMERATOR && point.filled) div.classList.add('filled'); if (selectedPointId === point.id) div.classList.add('selected'); div.style.left = x + 'px'; div.dataset.id = point.id; const label = document.createElement('span'); label.className = 'point-label'; label.textContent = point.label; div.appendChild(label); div.addEventListener('click', (e) => { e.stopPropagation(); selectedPointId = point.id; renderAll(); }); numberLineEl.appendChild(div); }); } renderPointsList(); }
+    function renderPointsList() { if (points.length === 0) { pointsListEl.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 20px;">✨ Нажми на ось или добавь точку</div>'; return; } let html = ''; points.forEach(point => { let bgColor = '#94a3b8'; let typeText = 'Неизвестный'; switch(point.type) { case TYPES.NUMERATOR: bgColor = '#10b981'; typeText = 'Числитель'; break; case TYPES.DENOMINATOR: bgColor = '#ef4444'; typeText = 'Знаменатель'; break; case TYPES.COINCIDENT_NUMERATOR: bgColor = '#3b82f6'; typeText = 'Совпавший у числителя'; break; case TYPES.COINCIDENT_DENOMINATOR: bgColor = '#f59e0b'; typeText = 'Совпавший у знаменателя'; break; } const canToggle = point.type === TYPES.COINCIDENT_NUMERATOR; html += `<div class="point-item" style="border-left-color: ${bgColor}"><div class="point-info"><span class="point-value">x = ${point.value}</span><span class="point-type-badge" style="background: ${bgColor}">${typeText}</span>${canToggle ? `<label class="filled-toggle"><input type="checkbox" ${point.filled ? 'checked' : ''} onclick="window.handleIntervalToggleFilled('${point.id}')"><span>Закраска</span></label>` : ''}</div><button class="remove-btn" onclick="window.handleIntervalRemovePoint('${point.id}')">×</button></div>`; }); pointsListEl.innerHTML = html; }
+    updateIntervals();
+    renderAll();
+})();
+
+// ============ КООРДИНАТНАЯ ПЛОСКОСТЬ ============
+(function() {
+    const toggleBtn = document.getElementById('coord_togglePlaneBtn');
+    const planeContainer = document.getElementById('coord_planeContainer');
+    const updateGraphBtn = document.getElementById('coord_updateGraphBtn');
+    if (toggleBtn && planeContainer) toggleBtn.addEventListener('click', function() { if (planeContainer.style.display === 'none' || planeContainer.style.display === '') { planeContainer.style.display = 'block'; toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть плоскость'; } else { planeContainer.style.display = 'none'; toggleBtn.innerHTML = '<i class="fas fa-eye"></i> Показать плоскость'; } });
+    const canvas = document.getElementById('coord_graphCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const func1Input = document.getElementById('coord_func1Input');
+    const func2Input = document.getElementById('coord_func2Input');
+    const aSlider = document.getElementById('coord_aSlider');
+    const aInput = document.getElementById('coord_aInput');
+    const aValueSpan = document.getElementById('coord_aValue');
+    const xMinInput = document.getElementById('coord_xMin');
+    const xMaxInput = document.getElementById('coord_xMax');
+    const yMinInput = document.getElementById('coord_yMin');
+    const yMaxInput = document.getElementById('coord_yMax');
+    const zoomInBtn = document.getElementById('coord_zoomInBtn');
+    const zoomOutBtn = document.getElementById('coord_zoomOutBtn');
+    const resetViewBtn = document.getElementById('coord_resetViewBtn');
+    function updateAValue() { const val = parseFloat(aSlider.value).toFixed(2); aValueSpan.textContent = val; aInput.value = val; }
+    function updateAFromInput() { let val = parseFloat(aInput.value); if (isNaN(val)) val = 4; aSlider.value = val; aValueSpan.textContent = val.toFixed(2); }
+    aSlider.addEventListener('input', updateAValue);
+    aInput.addEventListener('input', updateAFromInput);
+    aInput.addEventListener('blur', function() { let val = parseFloat(this.value); if (isNaN(val)) val = 4; this.value = val.toFixed(2); aSlider.value = val; aValueSpan.textContent = val.toFixed(2); });
+    updateAValue();
+    let xMin = -10, xMax = 10, yMin = -10, yMax = 10;
+    function readBoundsFromInputs() { xMin = parseFloat(xMinInput.value) || -10; xMax = parseFloat(xMaxInput.value) || 10; yMin = parseFloat(yMinInput.value) || -10; yMax = parseFloat(yMaxInput.value) || 10; if (xMin >= xMax) xMax = xMin + 1; if (yMin >= yMax) yMax = yMin + 1; }
+    function updateInputsFromBounds() { xMinInput.value = xMin.toFixed(2); xMaxInput.value = xMax.toFixed(2); yMinInput.value = yMin.toFixed(2); yMaxInput.value = yMax.toFixed(2); }
+    readBoundsFromInputs();
+    function toScreenX(worldX) { return ((worldX - xMin) / (xMax - xMin)) * canvas.width; }
+    function toScreenY(worldY) { return canvas.height - ((worldY - yMin) / (yMax - yMin)) * canvas.height; }
+    function drawGridAndAxes() {
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = '#d1d5db';
+        ctx.beginPath();
+        const xRange = xMax - xMin;
+        const yRange = yMax - yMin;
+        let xStep = Math.pow(10, Math.floor(Math.log10(xRange / 8))); if (xStep <= 0) xStep = 0.5;
+        let yStep = Math.pow(10, Math.floor(Math.log10(yRange / 8))); if (yStep <= 0) yStep = 0.5;
+        let startX = Math.ceil(xMin / xStep) * xStep;
+        for (let x = startX; x <= xMax; x += xStep) { if (Math.abs(x) < 1e-10) continue; const screenX = toScreenX(x); if (screenX >= 0 && screenX <= canvas.width) { ctx.moveTo(screenX, 0); ctx.lineTo(screenX, canvas.height); } }
+        ctx.stroke();
+        ctx.beginPath();
+        let startY = Math.ceil(yMin / yStep) * yStep;
+        for (let y = startY; y <= yMax; y += yStep) { if (Math.abs(y) < 1e-10) continue; const screenY = toScreenY(y); if (screenY >= 0 && screenY <= canvas.height) { ctx.moveTo(0, screenY); ctx.lineTo(canvas.width, screenY); } }
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#475569';
+        ctx.beginPath();
+        if (xMin <= 0 && xMax >= 0) { const axisX = toScreenX(0); ctx.moveTo(axisX, 0); ctx.lineTo(axisX, canvas.height); }
+        if (yMin <= 0 && yMax >= 0) { const axisY = toScreenY(0); ctx.moveTo(0, axisY); ctx.lineTo(canvas.width, axisY); }
+        ctx.stroke();
+        ctx.font = '12px "Segoe UI", monospace';
+        ctx.fillStyle = '#1e293b';
+        ctx.shadowColor = 'white';
+        ctx.shadowBlur = 4;
+        ctx.textAlign = 'center';
+        for (let x = startX; x <= xMax; x += xStep) { if (Math.abs(x) < 0.001) continue; const sx = toScreenX(x); if (sx >= 10 && sx <= canvas.width - 30) ctx.fillText(x.toFixed(1), sx, toScreenY(0) - 8); }
+        if (xMin <= 0 && xMax >= 0 && yMin <= 0 && yMax >= 0) ctx.fillText('0', toScreenX(0) + 5, toScreenY(0) - 8);
+        ctx.textAlign = 'right';
+        for (let y = startY; y <= yMax; y += yStep) { if (Math.abs(y) < 0.001) continue; const sy = toScreenY(y); if (sy >= 20 && sy <= canvas.height - 10) ctx.fillText(y.toFixed(1), toScreenX(0) - 5, sy + 4); }
+        ctx.shadowBlur = 0;
+        ctx.textAlign = 'left';
+        ctx.restore();
+    }
+    function drawExplicitGraph(funcStr, color, aVal) { if (!funcStr.trim()) return; let processedFuncStr = funcStr.replace(/abs\(/g, 'math.abs('); let compiled; try { compiled = math.compile(processedFuncStr); } catch(e) { return; } ctx.save(); ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; let firstPoint = true; const steps = 800; for (let i = 0; i <= steps; i++) { const t = i / steps; const worldX = xMin + t * (xMax - xMin); let worldY; try { worldY = compiled.evaluate({ x: worldX, a: aVal, math: math }); } catch(e) { firstPoint = true; continue; } if (!isFinite(worldY) || isNaN(worldY)) { firstPoint = true; continue; } if (worldY < yMin - (yMax - yMin) * 0.5 || worldY > yMax + (yMax - yMin) * 0.5) { firstPoint = true; continue; } const screenX = toScreenX(worldX); const screenY = toScreenY(worldY); if (firstPoint) { ctx.moveTo(screenX, screenY); firstPoint = false; } else { ctx.lineTo(screenX, screenY); } } ctx.stroke(); ctx.restore(); }
+    function drawImplicitGraph(funcStr, color, aVal) { if (!funcStr.trim()) return; let processedFuncStr = funcStr.replace(/abs\(/g, 'math.abs('); const parts = processedFuncStr.split('='); if (parts.length !== 2) return; const leftExpr = parts[0].trim(); const rightExpr = parts[1].trim(); ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2; const gridSize = 120; const cellSizeX = (xMax - xMin) / gridSize; const cellSizeY = (yMax - yMin) / gridSize; function getValue(x, y) { try { const scope = { x: x, y: y, a: aVal, math: math }; const left = math.evaluate(leftExpr, scope); const right = math.evaluate(rightExpr, scope); return left - right; } catch(e) { return NaN; } } const values = []; for (let i = 0; i <= gridSize; i++) { values[i] = []; const wx = xMin + i * cellSizeX; for (let j = 0; j <= gridSize; j++) { const wy = yMin + j * cellSizeY; values[i][j] = getValue(wx, wy); } } ctx.beginPath(); for (let i = 0; i < gridSize; i++) { for (let j = 0; j < gridSize; j++) { const v00 = values[i][j]; const v10 = values[i+1][j]; const v01 = values[i][j+1]; const v11 = values[i+1][j+1]; if (isNaN(v00) || isNaN(v10) || isNaN(v01) || isNaN(v11)) continue; const x0 = xMin + i * cellSizeX; const y0 = yMin + j * cellSizeY; const x1 = x0 + cellSizeX; const y1 = y0 + cellSizeY; const eps = 1e-10; const crosses = []; if (v00 * v01 <= eps) { const t = -v00 / (v01 - v00); const y = y0 + t * cellSizeY; crosses.push({ x: x0, y: y }); } if (v10 * v11 <= eps) { const t = -v10 / (v11 - v10); const y = y0 + t * cellSizeY; crosses.push({ x: x1, y: y }); } if (v00 * v10 <= eps) { const t = -v00 / (v10 - v00); const x = x0 + t * cellSizeX; crosses.push({ x: x, y: y0 }); } if (v01 * v11 <= eps) { const t = -v01 / (v11 - v01); const x = x0 + t * cellSizeX; crosses.push({ x: x, y: y1 }); } if (crosses.length >= 2) { const p1 = crosses[0]; const p2 = crosses[1]; const sx1 = toScreenX(p1.x); const sy1 = toScreenY(p1.y); const sx2 = toScreenX(p2.x); const sy2 = toScreenY(p2.y); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); } } } ctx.stroke(); ctx.restore(); }
+    function drawGraphs() { const aVal = parseFloat(aSlider.value); const func1Str = func1Input.value; const func2Str = func2Input.value; const isImplicit1 = func1Str.includes('='); const isImplicit2 = func2Str.includes('='); if (isImplicit1) drawImplicitGraph(func1Str, '#2563eb', aVal); else drawExplicitGraph(func1Str, '#2563eb', aVal); if (isImplicit2) drawImplicitGraph(func2Str, '#dc2626', aVal); else drawExplicitGraph(func2Str, '#dc2626', aVal); ctx.save(); ctx.font = 'bold 14px "Segoe UI"'; ctx.fillStyle = '#1e293b'; ctx.shadowColor = 'white'; ctx.shadowBlur = 6; ctx.fillText(`a = ${aVal.toFixed(2)}`, 30, 50); ctx.restore(); }
+    function redraw() { readBoundsFromInputs(); drawGridAndAxes(); drawGraphs(); }
+    if (updateGraphBtn) updateGraphBtn.addEventListener('click', redraw);
+    function zoom(factor) { readBoundsFromInputs(); const centerX = (xMin + xMax) / 2; const centerY = (yMin + yMax) / 2; const newHalfX = (xMax - xMin) * factor / 2; const newHalfY = (yMax - yMin) * factor / 2; xMin = centerX - newHalfX; xMax = centerX + newHalfX; yMin = centerY - newHalfY; yMax = centerY + newHalfY; updateInputsFromBounds(); redraw(); }
+    zoomInBtn.addEventListener('click', () => zoom(0.7));
+    zoomOutBtn.addEventListener('click', () => zoom(1.4));
+    resetViewBtn.addEventListener('click', () => { xMin = -10; xMax = 10; yMin = -10; yMax = 10; updateInputsFromBounds(); aSlider.value = 4; updateAValue(); func1Input.value = 'x^2 + y^2 = a'; func2Input.value = 'abs(x) = a'; redraw(); });
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); readBoundsFromInputs(); const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height; const mouseCanvasX = (e.clientX - rect.left) * scaleX; const mouseCanvasY = (e.clientY - rect.top) * scaleY; const mouseWorldX = xMin + (mouseCanvasX / canvas.width) * (xMax - xMin); const mouseWorldY = yMax - (mouseCanvasY / canvas.height) * (yMax - yMin); const delta = Math.sign(e.deltaY) * -0.1; const factor = 1 + delta; const newWidth = (xMax - xMin) * factor; const newHeight = (yMax - yMin) * factor; if (newWidth < 1e-5 || newHeight < 1e-5) return; const newXMin = mouseWorldX - (mouseWorldX - xMin) * factor; const newXMax = newXMin + newWidth; const newYMax = mouseWorldY + (yMax - mouseWorldY) * factor; const newYMin = newYMax - newHeight; xMin = newXMin; xMax = newXMax; yMin = newYMin; yMax = newYMax; updateInputsFromBounds(); redraw(); }, { passive: false });
+    canvas.addEventListener('dblclick', () => { resetViewBtn.click(); });
+    redraw();
+})();
+
+// ============ СИСТЕМА АДМИН-ПАНЕЛИ ============
+class AdminSystem {
+    constructor() {
+        this.adminPassword = "1";
+        this.isAdmin = localStorage.getItem('isAdmin') === 'true';
+        this.init();
+    }
+    init() { this.setupAdminButton(); this.setupAdminModal(); this.checkAdminStatus(); this.loadAdminData(); }
+    setupAdminButton() {
+        const adminButton = document.getElementById('admin-button');
+        const userSection = document.querySelector('.user-section');
+        if (!adminButton && userSection) { const button = document.createElement('button'); button.id = 'admin-button'; button.className = 'btn btn-outline hidden'; button.innerHTML = '<i class="fas fa-cog"></i> Админ-панель'; userSection.appendChild(button); }
+        document.getElementById('admin-button')?.addEventListener('click', () => { if (this.isAdmin) this.showAdminPanel(); else this.showAdminLogin(); });
+    }
+    setupAdminModal() {
+        const modal = document.getElementById('admin-modal');
+        if (!modal) return;
+        const closeModal = modal.querySelector('.close-modal');
+        if (closeModal) closeModal.addEventListener('click', () => { modal.style.display = 'none'; this.resetEditMode(); });
+        window.addEventListener('click', (e) => { if (e.target === modal) { modal.style.display = 'none'; this.resetEditMode(); } });
+        const adminTabs = modal.querySelectorAll('.admin-tab');
+        adminTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                adminTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.admin-tab-content').forEach(content => content.classList.remove('active'));
+                const target = document.getElementById(tabName);
+                if (target) { target.classList.add('active'); this.resetEditMode(); setTimeout(() => initMathEditor(), 100); }
+            });
+        });
+        this.setupAdminEventListeners();
+    }
+    setupAdminEventListeners() {
+        document.getElementById('add-example-btn')?.addEventListener('click', () => this.addExample());
+        document.getElementById('add-practice-btn')?.addEventListener('click', () => this.addPracticeTask());
+        document.getElementById('save-theory-btn')?.addEventListener('click', () => this.saveTheory());
+        document.getElementById('example-task-select')?.addEventListener('change', () => this.resetEditMode());
+        document.getElementById('practice-task-select')?.addEventListener('change', () => this.resetEditMode());
+        document.getElementById('theory-task-select')?.addEventListener('change', () => this.loadTheoryEditor());
+        document.getElementById('theory-type')?.addEventListener('change', () => this.loadTheoryEditor());
+        document.getElementById('add-test-question-btn')?.addEventListener('click', () => this.addTestQuestion());
+    }
+    resetEditMode() {
+        const exampleButton = document.getElementById('add-example-btn');
+        if (exampleButton) { exampleButton.innerHTML = '<i class="fas fa-plus"></i> Добавить пример'; delete exampleButton.dataset.editTask; delete exampleButton.dataset.editIndex; }
+        const practiceButton = document.getElementById('add-practice-btn');
+        if (practiceButton) { practiceButton.innerHTML = '<i class="fas fa-plus"></i> Добавить задание'; delete practiceButton.dataset.editTask; delete practiceButton.dataset.editIndex; }
+        const testButton = document.getElementById('add-test-question-btn');
+        if (testButton) { testButton.innerHTML = '<i class="fas fa-save"></i> Добавить вопрос'; delete testButton.dataset.editIndex; }
+        ['example-title', 'example-statement', 'example-solution', 'practice-source', 'practice-question', 'practice-answer', 'test-question-text', 'test-options', 'test-correct', 'test-explanation'].forEach(id => { const field = document.getElementById(id); if (field) field.value = ''; });
+    }
+    showAdminLogin() { const password = prompt('Введите пароль для доступа к админ-панели:'); if (password === this.adminPassword) { this.isAdmin = true; localStorage.setItem('isAdmin', 'true'); document.getElementById('admin-button')?.classList.remove('hidden'); this.showAdminPanel(); showNotification('Доступ к админ-панели разрешен', 'success'); } else if (password !== null) showNotification('Неверный пароль', 'error'); }
+    showAdminPanel() { const modal = document.getElementById('admin-modal'); if (modal) { modal.style.display = 'block'; this.resetEditMode(); this.loadAdminData(); setTimeout(() => initMathEditor(), 300); } }
+    loadAdminData() { this.loadExamplesList(); this.loadPracticeList(); this.loadTheoryEditor(); this.loadTestQuestionsList(); }
+    addExample() {
+        const addButton = document.getElementById('add-example-btn');
+        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
+        const taskNumber = parseInt(document.getElementById('example-task-select').value);
+        const type = document.getElementById('example-type').value;
+        const title = document.getElementById('example-title').value;
+        const statement = document.getElementById('example-statement').value;
+        const solution = document.getElementById('example-solution').value;
+        if (!title || !statement || !solution) { showNotification('Заполните все поля', 'warning'); return; }
+        const example = { type, title, statement, solution };
+        let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); examples[editIndex] = example; showNotification(`Пример обновлен в задании ${taskNumber}!`, 'success'); }
+        else { examples.push(example); showNotification(`Пример добавлен в задание ${taskNumber}!`, 'success'); }
+        localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples));
+        this.loadExamplesList();
+        this.resetEditMode();
+        document.getElementById('example-title').value = '';
+        document.getElementById('example-statement').value = '';
+        document.getElementById('example-solution').value = '';
+        updateCurrentTask();
+    }
+    addPracticeTask() {
+        const addButton = document.getElementById('add-practice-btn');
+        const isEditing = addButton.dataset.editTask && addButton.dataset.editIndex !== undefined;
+        const taskNumber = parseInt(document.getElementById('practice-task-select').value);
+        const source = document.getElementById('practice-source').value;
+        const difficulty = document.getElementById('practice-difficulty').value;
+        const question = document.getElementById('practice-question').value;
+        const answer = document.getElementById('practice-answer').value;
+        if (!source || !question || !answer) { showNotification('Заполните все поля', 'warning'); return; }
+        const task = { id: isEditing ? undefined : `admin_${taskNumber}_${Date.now()}`, source, difficulty, question, answer };
+        let practiceTasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); task.id = practiceTasks[editIndex]?.id || task.id; practiceTasks[editIndex] = task; showNotification(`Задание обновлено в разделе ${taskNumber}!`, 'success'); }
+        else { practiceTasks.push(task); showNotification(`Задание добавлено в раздел ${taskNumber}!`, 'success'); }
+        localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(practiceTasks));
+        this.loadPracticeList();
+        this.resetEditMode();
+        document.getElementById('practice-source').value = '';
+        document.getElementById('practice-question').value = '';
+        document.getElementById('practice-answer').value = '';
+        updateCurrentTask();
+    }
+    saveTheory() {
+        const taskNumber = parseInt(document.getElementById('theory-task-select').value);
+        const type = document.getElementById('theory-type').value;
+        const content = document.getElementById('theory-content-editor').value;
+        if (!content) { showNotification('Введите содержимое', 'warning'); return; }
+        localStorage.setItem(`admin_${type}_${taskNumber}`, content);
+        showNotification(`${type === 'theory' ? 'Теория' : 'Алгоритм'} сохранена для задания ${taskNumber}!`, 'success');
+        updateCurrentTask();
+    }
+    loadExamplesList() {
+        const listContainer = document.getElementById('existing-examples-list');
+        if (!listContainer) return;
+        let html = '';
+        for (let taskNumber of [13, 15, 18]) {
+            const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+            if (examples.length > 0) {
+                html += `<h4>Задание ${taskNumber}</h4>`;
+                examples.forEach((example, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${example.title}</div><div class="admin-item-meta">Тип: ${example.type}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-example" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+            }
+        }
+        if (!html) html = '<p>Пока нет добавленных примеров</p>';
+        listContainer.innerHTML = html;
+        this.setupExampleListHandlers();
+    }
+    loadPracticeList() {
+        const listContainer = document.getElementById('existing-practice-list');
+        if (!listContainer) return;
+        let html = '';
+        for (let taskNumber of [13, 15, 18]) {
+            const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+            if (tasks.length > 0) {
+                html += `<h4>Задание ${taskNumber}</h4>`;
+                tasks.forEach((task, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${task.source}</div><div class="admin-item-meta">Сложность: ${task.difficulty}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-practice" data-task="${taskNumber}" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+            }
+        }
+        if (!html) html = '<p>Пока нет добавленных заданий</p>';
+        listContainer.innerHTML = html;
+        this.setupPracticeListHandlers();
+    }
+    loadTheoryEditor() {
+        const taskNumber = document.getElementById('theory-task-select')?.value;
+        const type = document.getElementById('theory-type')?.value;
+        const editor = document.getElementById('theory-content-editor');
+        if (!taskNumber || !type || !editor) return;
+        const savedContent = localStorage.getItem(`admin_${type}_${taskNumber}`);
+        if (savedContent) editor.value = savedContent;
+        else { const currentData = getCourseData(); const originalContent = type === 'theory' ? currentData[taskNumber]?.theory : currentData[taskNumber]?.algorithm; editor.value = originalContent || ''; }
+    }
+    setupExampleListHandlers() {
+        document.querySelectorAll('.edit-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editExample(taskNumber, index); }); });
+        document.querySelectorAll('.delete-example').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить этот пример?')) this.deleteExample(taskNumber, index); }); });
+    }
+    setupPracticeListHandlers() {
+        document.querySelectorAll('.edit-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; this.editPracticeTask(taskNumber, index); }); });
+        document.querySelectorAll('.delete-practice').forEach(button => { button.addEventListener('click', (e) => { const taskNumber = e.target.closest('button').dataset.task; const index = e.target.closest('button').dataset.index; if (confirm('Удалить это задание?')) this.deletePracticeTask(taskNumber, index); }); });
+    }
+    editExample(taskNumber, index) {
+        const examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]');
+        const example = examples[index];
+        if (!example) return;
+        document.getElementById('example-task-select').value = taskNumber;
+        document.getElementById('example-type').value = example.type;
+        document.getElementById('example-title').value = example.title;
+        document.getElementById('example-statement').value = example.statement;
+        document.getElementById('example-solution').value = example.solution;
+        const addButton = document.getElementById('add-example-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editTask = taskNumber;
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-modal').scrollTop = 0;
+    }
+    editPracticeTask(taskNumber, index) {
+        const tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]');
+        const task = tasks[index];
+        if (!task) return;
+        document.getElementById('practice-task-select').value = taskNumber;
+        document.getElementById('practice-source').value = task.source;
+        document.getElementById('practice-difficulty').value = task.difficulty;
+        document.getElementById('practice-question').value = task.question;
+        document.getElementById('practice-answer').value = task.answer;
+        const addButton = document.getElementById('add-practice-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editTask = taskNumber;
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-modal').scrollTop = 0;
+    }
+    deleteExample(taskNumber, index) { let examples = JSON.parse(localStorage.getItem(`admin_examples_${taskNumber}`) || '[]'); examples.splice(index, 1); localStorage.setItem(`admin_examples_${taskNumber}`, JSON.stringify(examples)); this.loadExamplesList(); showNotification('Пример удален', 'warning'); }
+    deletePracticeTask(taskNumber, index) { let tasks = JSON.parse(localStorage.getItem(`admin_practice_${taskNumber}`) || '[]'); tasks.splice(index, 1); localStorage.setItem(`admin_practice_${taskNumber}`, JSON.stringify(tasks)); this.loadPracticeList(); showNotification('Задание удалено', 'warning'); }
+    checkAdminStatus() { if (this.isAdmin) document.getElementById('admin-button')?.classList.remove('hidden'); }
+    loadTestQuestionsList() {
+        const container = document.getElementById('test-questions-list');
+        if (!container) return;
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        if (testQuestions.length === 0) { container.innerHTML = '<p>Пока нет вопросов. Добавьте первый вопрос!</p>'; return; }
+        let html = '';
+        testQuestions.forEach((question, index) => { html += `<div class="admin-item"><div class="admin-item-info"><div class="admin-item-title">${question.text.substring(0, 60)}${question.text.length > 60 ? '...' : ''}</div><div class="admin-item-meta">Правильный ответ: ${question.correct}</div></div><div class="admin-item-actions"><button class="btn btn-small btn-outline edit-test-question" data-index="${index}"><i class="fas fa-edit"></i></button><button class="btn btn-small btn-outline delete-test-question" data-index="${index}"><i class="fas fa-trash"></i></button></div></div>`; });
+        container.innerHTML = html;
+        container.querySelectorAll('.edit-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); this.editTestQuestion(index); }); });
+        container.querySelectorAll('.delete-test-question').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index); if (confirm('Удалить этот вопрос?')) this.deleteTestQuestion(index); }); });
+    }
+    addTestQuestion() {
+        const addButton = document.getElementById('add-test-question-btn');
+        const isEditing = addButton.dataset.editIndex !== undefined;
+        const text = document.getElementById('test-question-text').value;
+        const optionsStr = document.getElementById('test-options').value;
+        const correct = document.getElementById('test-correct').value;
+        if (!text || !optionsStr || !correct) { showNotification('Заполните все поля вопроса', 'warning'); return; }
+        const options = optionsStr.split(',').map(opt => opt.trim());
+        if (options.length < 2) { showNotification('Добавьте минимум 2 варианта ответа', 'warning'); return; }
+        if (!options.includes(correct)) { showNotification('Правильный ответ должен быть среди вариантов', 'warning'); return; }
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        const newQuestion = { text, options, correct };
+        if (isEditing) { const editIndex = parseInt(addButton.dataset.editIndex); testQuestions[editIndex] = newQuestion; showNotification('Вопрос обновлен!', 'success'); }
+        else { testQuestions.push(newQuestion); showNotification('Вопрос добавлен в тест!', 'success'); }
+        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
+        this.loadTestQuestionsList();
+        this.resetEditMode();
+        document.getElementById('test-question-text').value = '';
+        document.getElementById('test-options').value = '';
+        document.getElementById('test-correct').value = '';
+        if (currentTask === 'test') renderTest();
+    }
+    editTestQuestion(index) {
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        const question = testQuestions[index];
+        if (!question) return;
+        document.getElementById('test-question-text').value = question.text;
+        document.getElementById('test-options').value = question.options.join(', ');
+        document.getElementById('test-correct').value = question.correct;
+        const addButton = document.getElementById('add-test-question-btn');
+        addButton.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+        addButton.dataset.editIndex = index;
+        document.querySelector('.admin-section').scrollIntoView({ behavior: 'smooth' });
+    }
+    deleteTestQuestion(index) {
+        const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+        testQuestions.splice(index, 1);
+        localStorage.setItem('testQuestions', JSON.stringify(testQuestions));
+        this.loadTestQuestionsList();
+        showNotification('Вопрос удален', 'warning');
+        if (currentTask === 'test') renderTest();
+    }
+}
+
+// ============ СИСТЕМА ТИПИЧНЫХ ОШИБОК ============
+class MistakesSystem {
+    constructor() {
+        this.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
+        this.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
+        this.init();
+    }
+    init() { this.renderMistakes(); this.setupEventListeners(); }
+    setupEventListeners() {
+        document.getElementById('add-text-mistake')?.addEventListener('click', () => this.addTextMistake());
+        document.getElementById('add-image-mistake')?.addEventListener('click', () => document.getElementById('image-upload').click());
+        document.getElementById('image-upload')?.addEventListener('change', (e) => { if (e.target.files[0]) this.addImageMistake(e.target.files[0]); e.target.value = ''; });
+        document.getElementById('mistakes-container')?.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-delete-mistake')) {
+                const mistakeItem = e.target.closest('.mistake-item');
+                const index = parseInt(mistakeItem.dataset.index);
+                const isShared = mistakeItem.dataset.shared === 'true';
+                this.deleteMistake(index, isShared);
+            }
+        });
+        document.getElementById('clear-mistakes-btn')?.addEventListener('click', () => this.clearAllMistakes());
+        document.getElementById('mistakes-stats-btn')?.addEventListener('click', () => this.showDetailedStats());
+    }
+    addTextMistake() {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
+        const mistake = { id: Date.now(), type: 'text', content: '', caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+        this.userMistakes.push(mistake);
+        this.saveMistakes();
+        this.renderMistakes();
+        showNotification('Текстовая ошибка добавлена', 'info');
+    }
+    addImageMistake(file) {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); document.getElementById('auth-button').click(); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const mistake = { id: Date.now(), type: 'image', content: e.target.result, caption: '', date: new Date().toLocaleString('ru-RU'), taskNumber: parseInt(currentTask), taskIndex: currentTaskIndex[currentTask], userId: userSystem.currentUser.email, userName: userSystem.currentUser.username, createdAt: new Date().toISOString() };
+            this.userMistakes.push(mistake);
+            this.saveMistakes();
+            this.renderMistakes();
+            showNotification('Ошибка с изображением добавлена', 'info');
+        };
+        reader.readAsDataURL(file);
+    }
+    deleteMistake(index, isShared) {
+        if (isShared) {
+            if (!adminSystem.isAdmin) { showNotification('Только администратор может удалять общие ошибки', 'error'); return; }
+            if (confirm('Удалить эту общую ошибку?')) { this.sharedMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Общая ошибка удалена', 'warning'); }
+        } else {
+            const mistake = this.userMistakes[index];
+            if (!mistake) return;
+            if (userSystem.currentUser && mistake.userId !== userSystem.currentUser.email) { showNotification('Вы можете удалять только свои ошибки!', 'error'); return; }
+            if (confirm('Удалить эту ошибку?')) { this.userMistakes.splice(index, 1); this.saveMistakes(); this.renderMistakes(); showNotification('Ошибка удалена', 'warning'); }
+        }
+    }
+    saveMistakes() { localStorage.setItem('userMistakes', JSON.stringify(this.userMistakes)); localStorage.setItem('sharedMistakes', JSON.stringify(this.sharedMistakes)); }
+    renderMistakes() {
+        const container = document.getElementById('mistakes-container');
+        if (!container) return;
+        container.innerHTML = '';
+        let filteredUserMistakes = this.userMistakes.filter(m => m.taskNumber === parseInt(currentTask));
+        let filteredSharedMistakes = this.sharedMistakes.filter(m => m.taskNumber === parseInt(currentTask));
+        const allMistakes = [...filteredSharedMistakes.map((m, i) => ({...m, isShared: true, originalIndex: i})), ...filteredUserMistakes.map((m, i) => ({...m, isShared: false, originalIndex: i}))];
+        if (allMistakes.length === 0) { container.innerHTML = `<div class="empty-mistakes"><i class="fas fa-clipboard-list"></i><p>Пока нет добавленных ошибок для этого задания. Добавьте первую!</p></div>`; return; }
+        allMistakes.forEach((mistake, index) => {
+            const template = mistake.type === 'text' ? document.getElementById('text-mistake-template')?.cloneNode(true) : document.getElementById('image-mistake-template')?.cloneNode(true);
+            if (!template) return;
+            template.classList.remove('template');
+            template.style.display = 'block';
+            template.dataset.index = mistake.originalIndex;
+            template.dataset.shared = mistake.isShared;
+            if (mistake.isShared) {
+                const header = template.querySelector('.mistake-header');
+                const sharedLabel = document.createElement('span');
+                sharedLabel.className = 'shared-label';
+                sharedLabel.innerHTML = '<i class="fas fa-users"></i> Общая ошибка';
+                sharedLabel.style.cssText = 'color: #3498db; font-size: 0.8rem; margin-left: 10px;';
+                header.insertBefore(sharedLabel, header.querySelector('.btn-delete-mistake'));
+            }
+            template.querySelector('.mistake-date').textContent = mistake.date;
+            if (mistake.type === 'text') {
+                const textarea = template.querySelector('.mistake-text');
+                textarea.value = mistake.content;
+                textarea.addEventListener('input', (e) => {
+                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].content = e.target.value;
+                    else this.userMistakes[mistake.originalIndex].content = e.target.value;
+                    this.saveMistakes();
+                });
+            } else {
+                const img = template.querySelector('.mistake-image');
+                img.src = mistake.content;
+                const caption = template.querySelector('.mistake-caption');
+                caption.value = mistake.caption;
+                caption.addEventListener('input', (e) => {
+                    if (mistake.isShared) this.sharedMistakes[mistake.originalIndex].caption = e.target.value;
+                    else this.userMistakes[mistake.originalIndex].caption = e.target.value;
+                    this.saveMistakes();
+                });
+            }
+            container.appendChild(template);
+        });
+        this.renderMistakesStats(filteredUserMistakes, filteredSharedMistakes);
+    }
+    renderMistakesStats(userMistakes, sharedMistakes) {
+        const statsContainer = document.createElement('div');
+        statsContainer.className = 'mistakes-stats';
+        statsContainer.innerHTML = `<div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;"><div><i class="fas fa-user" style="color: #3498db;"></i><strong>${userMistakes.length}</strong> моих</div><div><i class="fas fa-users" style="color: #2ecc71;"></i><strong>${sharedMistakes.length}</strong> общих</div><div><i class="fas fa-tasks" style="color: #e74c3c;"></i><strong>${userMistakes.length + sharedMistakes.length}</strong> всего</div></div>`;
+        document.getElementById('mistakes-container').appendChild(statsContainer);
+    }
+    clearAllMistakes() {
+        if (!userSystem.currentUser) { showNotification('Сначала войдите в систему!', 'warning'); return; }
+        if (this.userMistakes.length === 0) { showNotification('У вас нет ошибок для удаления', 'info'); return; }
+        if (confirm(`Вы уверены, что хотите удалить все ваши ошибки (${this.userMistakes.length} шт.)?`)) { this.userMistakes = []; this.saveMistakes(); this.renderMistakes(); showNotification(`Удалено ${this.userMistakes.length} ваших ошибок`, 'success'); }
+    }
+    getMistakesStats() {
+        return { user: { total: this.userMistakes.length, byType: { text: this.userMistakes.filter(m => m.type === 'text').length, image: this.userMistakes.filter(m => m.type === 'image').length }, byTask: this.userMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) }, shared: { total: this.sharedMistakes.length, byType: { text: this.sharedMistakes.filter(m => m.type === 'text').length, image: this.sharedMistakes.filter(m => m.type === 'image').length }, byTask: this.sharedMistakes.reduce((acc, m) => { const taskKey = `Задание ${m.taskNumber}`; acc[taskKey] = (acc[taskKey] || 0) + 1; return acc; }, {}) } };
+    }
+    showDetailedStats() {
+        const stats = this.getMistakesStats();
+        let statsHTML = `<div style="text-align: left; padding: 15px;"><h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-chart-pie"></i> Статистика ошибок</h4><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #3498db; margin-bottom: 8px;"><i class="fas fa-user"></i> Ваши ошибки</h5><div><strong>Всего:</strong> ${stats.user.total}</div><div><strong>Текстовые:</strong> ${stats.user.byType.text}</div><div><strong>С изображениями:</strong> ${stats.user.byType.image}</div></div><div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;"><h5 style="color: #2ecc71; margin-bottom: 8px;"><i class="fas fa-users"></i> Общие ошибки</h5><div><strong>Всего:</strong> ${stats.shared.total}</div><div><strong>Текстовые:</strong> ${stats.shared.byType.text}</div><div><strong>С изображениями:</strong> ${stats.shared.byType.image}</div></div>`;
+        if (stats.user.total > 0 || stats.shared.total > 0) {
+            statsHTML += `<div style="margin-top: 15px; border-top: 1px solid #ecf0f1; padding-top: 10px;"><strong>Общее распределение по заданиям:</strong>`;
+            const allTasks = {};
+            for (const [task, count] of Object.entries(stats.user.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
+            for (const [task, count] of Object.entries(stats.shared.byTask)) allTasks[task] = (allTasks[task] || 0) + count;
+            for (const [task, count] of Object.entries(allTasks)) statsHTML += `<div>${task}: ${count}</div>`;
+            statsHTML += `</div>`;
+        }
+        statsHTML += `</div>`;
+        const notification = document.createElement('div');
+        notification.className = 'notification info';
+        notification.innerHTML = statsHTML;
+        notification.style.maxWidth = '400px';
+        const container = document.getElementById('notification-container');
+        if (container) { container.appendChild(notification); setTimeout(() => notification.classList.add('show'), 10); setTimeout(() => { notification.classList.remove('show'); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300); }, 8000); }
+    }
+}
+
+// ============ ЕДИНАЯ СИСТЕМА ЭКСПОРТА/ИМПОРТА ДАННЫХ ============
+class DataExportImportSystem {
+    constructor() { this.init(); }
+    init() { this.setupEventListeners(); this.createHiddenFileInput(); }
+    setupEventListeners() {
+        document.getElementById('export-data-btn')?.addEventListener('click', () => this.exportAllData());
+        document.getElementById('import-data-btn')?.addEventListener('click', () => this.triggerImportData());
+        document.getElementById('reset-data-btn')?.addEventListener('click', () => this.resetAllData());
+    }
+    createHiddenFileInput() {
+        const importInput = document.createElement('input');
+        importInput.type = 'file';
+        importInput.id = 'import-data-file';
+        importInput.accept = '.json';
+        importInput.style.display = 'none';
+        document.body.appendChild(importInput);
+        importInput.addEventListener('change', (e) => { if (e.target.files[0]) { this.importAllData(e.target.files[0]); e.target.value = ''; } });
+    }
+    exportAllData() {
+        const exportData = {};
+        for (let taskNumber of [13, 15, 18]) {
+            const examples = localStorage.getItem(`admin_examples_${taskNumber}`);
+            const practice = localStorage.getItem(`admin_practice_${taskNumber}`);
+            const theory = localStorage.getItem(`admin_theory_${taskNumber}`);
+            const algorithm = localStorage.getItem(`admin_algorithm_${taskNumber}`);
+            if (examples) exportData[`admin_examples_${taskNumber}`] = JSON.parse(examples);
+            if (practice) exportData[`admin_practice_${taskNumber}`] = JSON.parse(practice);
+            if (theory) exportData[`admin_theory_${taskNumber}`] = theory;
+            if (algorithm) exportData[`admin_algorithm_${taskNumber}`] = algorithm;
+        }
+        const testQuestions = localStorage.getItem('testQuestions');
+        if (testQuestions) exportData.testQuestions = JSON.parse(testQuestions);
+        const users = localStorage.getItem('users');
+        const completedTasks = localStorage.getItem('completedTasks');
+        const currentUser = localStorage.getItem('currentUser');
+        const isAdmin = localStorage.getItem('isAdmin');
+        if (users) exportData.users = JSON.parse(users);
+        if (completedTasks) exportData.completedTasks = JSON.parse(completedTasks);
+        if (currentUser) exportData.currentUser = JSON.parse(currentUser);
+        if (isAdmin) exportData.isAdmin = isAdmin;
+        const userMistakes = localStorage.getItem('userMistakes');
+        const sharedMistakes = localStorage.getItem('sharedMistakes');
+        if (userMistakes) exportData.userMistakes = JSON.parse(userMistakes);
+        if (sharedMistakes) exportData.sharedMistakes = JSON.parse(sharedMistakes);
+        exportData.exportMetadata = { date: new Date().toISOString(), version: '3.0', description: 'Единый экспорт всех данных сайта (включая тесты)' };
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ege-math-all-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification('Все данные (задания, ошибки, прогресс, тесты) экспортированы успешно!', 'success');
+    }
+    triggerImportData() { document.getElementById('import-data-file').click(); }
+    importAllData(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                let importedCount = 0;
+                for (const key in data) {
+                    if (key === 'exportMetadata') continue;
+                    if (typeof data[key] === 'object') localStorage.setItem(key, JSON.stringify(data[key]));
+                    else localStorage.setItem(key, data[key]);
+                    importedCount++;
+                }
+                if (adminSystem) { adminSystem.loadAdminData(); adminSystem.loadTestQuestionsList(); }
+                updateCurrentTask();
+                if (taskCompletionSystem) { taskCompletionSystem.completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '{}'); taskCompletionSystem.saveToLocalStorage(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); }
+                if (mistakesSystem) { mistakesSystem.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]'); mistakesSystem.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]'); mistakesSystem.renderMistakes(); }
+                if (data.isAdmin) { localStorage.setItem('isAdmin', data.isAdmin); if (adminSystem) { adminSystem.isAdmin = data.isAdmin === 'true'; adminSystem.checkAdminStatus(); } }
+                if (data.currentUser) { localStorage.setItem('currentUser', JSON.stringify(data.currentUser)); if (userSystem) { userSystem.currentUser = data.currentUser; userSystem.saveToLocalStorage(); } }
+                checkAuthStatus();
+                if (currentTask === 'test') renderTest();
+                showNotification(`Импортировано ${importedCount} записей! Все данные успешно загружены.`, 'success');
+            } catch (error) { console.error('Ошибка импорта:', error); showNotification('Ошибка при импорте файла: ' + error.message, 'error'); }
+        };
+        reader.readAsText(file);
+    }
+    resetAllData() {
+        if (confirm('ВНИМАНИЕ! Это удалит ВСЕ данные: добавленные задания, примеры, теорию, тесты, ваши ошибки, прогресс и пользователей. Вы уверены?')) {
+            for (let taskNumber of [13, 15, 18]) {
+                localStorage.removeItem(`admin_examples_${taskNumber}`);
+                localStorage.removeItem(`admin_practice_${taskNumber}`);
+                localStorage.removeItem(`admin_theory_${taskNumber}`);
+                localStorage.removeItem(`admin_algorithm_${taskNumber}`);
+            }
+            localStorage.removeItem('testQuestions');
+            localStorage.removeItem('users');
+            localStorage.removeItem('completedTasks');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userMistakes');
+            localStorage.removeItem('sharedMistakes');
+            showNotification('Все данные сброшены! Страница будет перезагружена.', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    }
+}
+
+// ============ ФУНКЦИИ ДЛЯ ИТОГОВОГО ТЕСТА ============
+let currentTestIndex = 0;
+let userTestAnswers = JSON.parse(localStorage.getItem('userTestAnswers') || '{}');
+let testCompleted = false;
+
+function renderTest() {
+    const practiceContent = document.getElementById('practice-content');
+    if (!practiceContent) return;
+    const testQuestions = JSON.parse(localStorage.getItem('testQuestions') || '[]');
+    if (testQuestions.length === 0) { practiceContent.innerHTML = `<div class="test-container"><p>Вопросы теста еще не добавлены. Администратор может добавить вопросы в админ-панели.</p></div>`; return; }
+    if (userSystem.currentUser) {
+        const userEmail = userSystem.currentUser.email;
+        if (userTestAnswers[userEmail] && userTestAnswers[userEmail].completed) {
+            testCompleted = true;
+            const score = userTestAnswers[userEmail].score || 0;
+            practiceContent.innerHTML = `<div class="test-result"><h3><i class="fas fa-trophy"></i> Тест завершен!</h3><p>Ваш результат: ${score} / ${testQuestions.length}</p><p>Процент выполнения: ${Math.round(score / testQuestions.length * 100)}%</p><button id="reset-test-btn" class="btn btn-primary">Пройти тест заново</button></div>`;
+            document.getElementById('reset-test-btn')?.addEventListener('click', () => { if (userSystem.currentUser) { userTestAnswers[userSystem.currentUser.email] = { answers: {}, score: 0, completed: false }; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = false; currentTestIndex = 0; renderTest(); } else showNotification('Войдите в аккаунт', 'warning'); });
+            return;
+        }
+    }
+    testCompleted = false;
+    const question = testQuestions[currentTestIndex];
+    const userEmail = userSystem.currentUser?.email;
+    const savedAnswer = userEmail && userTestAnswers[userEmail] ? userTestAnswers[userEmail].answers[currentTestIndex] : null;
+    const isAnswered = savedAnswer !== null && savedAnswer !== undefined;
+    const isCorrect = isAnswered && savedAnswer === question.correct;
+    let optionsHtml = '';
+    question.options.forEach((option, idx) => { const checked = savedAnswer === option ? 'checked' : ''; const disabled = isAnswered ? 'disabled' : ''; let optionStyle = ''; if (isAnswered && savedAnswer === option && isCorrect) optionStyle = 'color: #27ae60; font-weight: bold;'; else if (isAnswered && savedAnswer === option && !isCorrect) optionStyle = 'color: #e74c3c;'; else if (isAnswered) optionStyle = 'color: #95a5a6;'; optionsHtml += `<li class="test-option"><input type="radio" name="test-option" value="${option.replace(/"/g, '&quot;')}" id="opt_${idx}" ${checked} ${disabled}><label for="opt_${idx}" style="${optionStyle}">${option}</label></li>`; });
+    let feedbackHtml = '';
+    if (isAnswered) { if (isCorrect) feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 8px; color: #2e7d32;"><i class="fas fa-check-circle"></i> Верно!</div>`; else feedbackHtml = `<div style="margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 8px; color: #c62828;"><i class="fas fa-times-circle"></i> Неверно.</div>`; }
+    practiceContent.innerHTML = `<div class="test-container"><div class="test-question"><div class="test-question-text">${question.text}</div><ul class="test-options">${optionsHtml}</ul>${feedbackHtml}</div><div class="test-nav"><button class="btn btn-secondary" id="test-prev" ${currentTestIndex === 0 ? 'disabled' : ''}><i class="fas fa-arrow-left"></i> Назад</button><span class="test-progress">${currentTestIndex + 1} / ${testQuestions.length}</span><button class="btn btn-primary" id="test-next">${currentTestIndex === testQuestions.length - 1 ? 'Завершить' : 'Далее'} <i class="fas fa-arrow-right"></i></button></div></div>`;
+    if (!isAnswered) { document.querySelectorAll('input[name="test-option"]').forEach(radio => { radio.addEventListener('change', (e) => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для сохранения прогресса', 'warning'); return; } const answer = e.target.value; const userEmail = userSystem.currentUser.email; if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].answers[currentTestIndex] = answer; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); renderTest(); const isAnswerCorrect = answer === question.correct; if (isAnswerCorrect) showNotification('✓ Верно!', 'success'); else showNotification('✗ Неверно', 'warning'); }); }); }
+    document.getElementById('test-prev')?.addEventListener('click', () => { if (currentTestIndex > 0) { currentTestIndex--; renderTest(); } });
+    document.getElementById('test-next')?.addEventListener('click', () => { if (!userSystem.currentUser) { showNotification('Войдите в аккаунт для завершения теста', 'warning'); return; } const testQuestionsLocal = JSON.parse(localStorage.getItem('testQuestions') || '[]'); const userEmail = userSystem.currentUser.email; if (currentTestIndex === testQuestionsLocal.length - 1) { let score = 0; const userAnswers = userTestAnswers[userEmail]?.answers || {}; testQuestionsLocal.forEach((q, idx) => { if (userAnswers[idx] === q.correct) score++; }); if (!userTestAnswers[userEmail]) userTestAnswers[userEmail] = { answers: {}, score: 0, completed: false }; userTestAnswers[userEmail].score = score; userTestAnswers[userEmail].completed = true; localStorage.setItem('userTestAnswers', JSON.stringify(userTestAnswers)); testCompleted = true; renderTest(); } else { currentTestIndex++; renderTest(); } });
+}
+
+// ============ ОСНОВНЫЕ ПЕРЕМЕННЫЕ ============
+let userSystem, taskCompletionSystem, mistakesSystem, adminSystem, dataExportImportSystem;
+let currentTaskIndex = {13: 0, 15: 0, 18: 0};
+let currentTask = '13';
+
+// ============ ОСНОВНЫЕ ФУНКЦИИ ============
+function initNavigation() {
+    document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', function(e) { e.preventDefault(); showTask(this.getAttribute('data-task')); }); });
+}
+function initAccordion() {
+    document.querySelectorAll('.accordion-header').forEach(header => { header.addEventListener('click', function() { const item = this.parentElement; const isActive = item.classList.contains('active'); document.querySelectorAll('.accordion-item').forEach(acc => acc.classList.remove('active')); if (!isActive) item.classList.add('active'); }); });
+}
+function initButtons() {
+    const showAnswerBtn = document.getElementById('show-answer');
+    const nextTaskBtn = document.getElementById('next-task');
+    const prevTaskBtn = document.getElementById('prev-task');
+    if (showAnswerBtn) showAnswerBtn.addEventListener('click', function() { const answerContent = document.getElementById('answer-content'); if (answerContent.classList.contains('hidden')) { answerContent.classList.remove('hidden'); answerContent.classList.add('visible'); this.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть ответ'; } else { answerContent.classList.remove('visible'); answerContent.classList.add('hidden'); this.innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; } });
+    if (nextTaskBtn) nextTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
+    if (prevTaskBtn) prevTaskBtn.addEventListener('click', function() { const currentData = getCourseData(); const task = currentData[currentTask]; if (task && task.practice && task.practice.length > 0) { currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length; showPracticeTask(currentTask); document.getElementById('answer-content').classList.add('hidden'); document.getElementById('answer-content').classList.remove('visible'); document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; updateProgress(currentTask); if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]); if (mistakesSystem) mistakesSystem.renderMistakes(); } });
+}
+function initExampleTabs() {
+    document.addEventListener('click', function(e) { if (e.target.classList.contains('example-tab')) { const tabsContainer = e.target.closest('.example-tabs'); const exampleType = e.target.getAttribute('data-type'); const examplesContent = tabsContainer.nextElementSibling; tabsContainer.querySelectorAll('.example-tab').forEach(tab => tab.classList.remove('active')); e.target.classList.add('active'); examplesContent.querySelectorAll('.example').forEach(example => example.classList.remove('active')); const targetExample = examplesContent.querySelector(`.example.${exampleType}`); if (targetExample) targetExample.classList.add('active'); } });
+}
+async function initAuthSystem() {
+    const authButton = document.getElementById('auth-button');
+    const logoutButton = document.getElementById('logout-button');
+    const modal = document.getElementById('auth-modal');
+    const closeModal = document.querySelector('.close-modal');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    if (!authButton || !modal) return;
+    authButton.addEventListener('click', () => modal.style.display = 'block');
+    if (closeModal) closeModal.addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+    authTabs.forEach(tab => { tab.addEventListener('click', () => { const tabName = tab.getAttribute('data-tab'); authTabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); if (loginForm) loginForm.classList.remove('active'); if (registerForm) registerForm.classList.remove('active'); if (tabName === 'login' && loginForm) loginForm.classList.add('active'); else if (registerForm) registerForm.classList.add('active'); }); });
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const result = await userSystem.login(email, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вход выполнен успешно!', 'success'); } else showNotification(result.message, 'error'); });
+    }
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const username = document.getElementById('register-username').value; const password = document.getElementById('register-password').value; const result = await userSystem.register(email, username, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Регистрация прошла успешно!', 'success'); } else showNotification(result.message, 'error'); });
+    }
+    if (logoutButton) logoutButton.addEventListener('click', () => { userSystem.logout(); taskCompletionSystem.currentUser = null; checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вы вышли из системы', 'info'); });
+}
+function checkAuthStatus() {
+    const authButton = document.getElementById('auth-button');
+    const userInfo = document.getElementById('user-info');
+    const ratingSection = document.getElementById('rating-section');
+    const userName = document.getElementById('user-name');
+    const adminButton = document.getElementById('admin-button');
+    if (!authButton || !userInfo || !ratingSection) return;
+    if (userSystem.currentUser) {
+        authButton.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        ratingSection.classList.remove('hidden');
+        if (userName) userName.textContent = userSystem.currentUser.username;
+        if (adminButton) adminButton.classList.remove('hidden');
+    } else {
+        authButton.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+        ratingSection.classList.add('hidden');
+        if (adminButton) adminButton.classList.add('hidden');
+    }
+}
+async function showTask(taskNumber) {
+    if (taskNumber === 'test') {
+        currentTask = 'test';
+        document.getElementById('task-title').textContent = 'Итоговый тест';
+        document.getElementById('practice-content').innerHTML = '';
+        document.getElementById('answer-content').classList.add('hidden');
+        renderTest();
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        document.querySelector(`[data-task="test"]`).classList.add('active');
+        const taskProgress = document.querySelector('.task-progress');
+        if (taskProgress) taskProgress.style.display = 'none';
+        const completionFilter = document.querySelector('.completion-filter');
+        if (completionFilter) completionFilter.style.display = 'none';
+        const accordionItems = document.querySelectorAll('.accordion-item');
+        accordionItems.forEach((item, index) => { if (index !== 4) item.style.display = 'none'; else { item.style.display = 'block'; item.classList.add('active'); } });
+        const practiceControls = document.querySelector('.practice-controls');
+        if (practiceControls) practiceControls.style.display = 'none';
+        return;
+    }
+    const taskProgress = document.querySelector('.task-progress');
+    if (taskProgress) taskProgress.style.display = 'flex';
+    const completionFilter = document.querySelector('.completion-filter');
+    if (completionFilter) completionFilter.style.display = 'flex';
+    const accordionItems = document.querySelectorAll('.accordion-item');
+    accordionItems.forEach(item => item.style.display = 'block');
+    const practiceControls = document.querySelector('.practice-controls');
+    if (practiceControls) practiceControls.style.display = 'flex';
+    const currentData = await loadCourseData();
+    const task = currentData[taskNumber];
+    if (!task) return;
+    currentTask = taskNumber;
+    document.getElementById('task-title').textContent = task.title;
+    document.getElementById('theory-content').innerHTML = task.theory;
+    document.getElementById('algorithm-content').innerHTML = task.algorithm;
+    document.getElementById('examples-content').innerHTML = task.examples;
+    if (currentTaskIndex[taskNumber] === undefined) currentTaskIndex[taskNumber] = 0;
+    showPracticeTask(taskNumber);
+    const answerContent = document.getElementById('answer-content');
+    if (answerContent) { answerContent.classList.add('hidden'); answerContent.classList.remove('visible'); }
+    const showAnswerBtn = document.getElementById('show-answer');
+    if (showAnswerBtn) showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
+    updateProgress(taskNumber);
+    updateActiveNavLink(taskNumber);
+    if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(taskNumber), currentTaskIndex[taskNumber]);
+    if (mistakesSystem) mistakesSystem.renderMistakes();
+    initExampleTabs();
+    const trigButtonContainer = document.getElementById('trig-circle-button-container');
+    if (trigButtonContainer) trigButtonContainer.style.display = taskNumber === '13' ? 'block' : 'none';
+    const coordSection = document.getElementById('coord-plane-section');
+    if (coordSection) coordSection.style.display = taskNumber === '18' ? 'block' : 'none';
+    const intervalButtonContainer = document.getElementById('interval-constructor-button-container');
+    const intervalContainer = document.getElementById('interval-constructor-container');
+    if (intervalButtonContainer && intervalContainer) { intervalButtonContainer.style.display = taskNumber === '15' ? 'block' : 'none'; intervalContainer.style.display = 'none'; }
+    setTimeout(() => processMathExpressions(), 100);
+}
+function showPracticeTask(taskNumber) {
+    const currentData = getCourseData();
+    const task = currentData[taskNumber];
+    const index = currentTaskIndex[taskNumber] || 0;
+    const practiceContent = document.getElementById('practice-content');
+    const answerContent = document.getElementById('answer-content');
+    if (task && task.practice && task.practice.length > 0 && task.practice[index] && practiceContent) practiceContent.innerHTML = task.practice[index].question;
+    else if (practiceContent) practiceContent.innerHTML = '<p>Задания для этого раздела еще не добавлены.</p>';
+    if (task && task.practice && task.practice.length > 0 && task.practice[index] && answerContent) answerContent.innerHTML = task.practice[index].answer;
+    else if (answerContent) answerContent.innerHTML = '<p>Решение пока не доступно.</p>';
+    setTimeout(() => processMathExpressions(), 100);
+}
+function updateProgress(taskNumber) {
+    const currentData = getCourseData();
+    const task = currentData[taskNumber];
+    const current = (currentTaskIndex[taskNumber] || 0) + 1;
+    const total = task && task.practice ? task.practice.length : 0;
+    const currentTaskEl = document.getElementById('current-task');
+    const totalTasksEl = document.getElementById('total-tasks');
+    if (currentTaskEl) currentTaskEl.textContent = current;
+    if (totalTasksEl) totalTasksEl.textContent = total;
+}
+function updateCurrentTask() { if (currentTask && currentTask !== 'test') showTask(currentTask); else if (currentTask === 'test') renderTest(); if (taskCompletionSystem) taskCompletionSystem.updateStatistics(); if (mistakesSystem) mistakesSystem.renderMistakes(); }
+function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); const activeLink = document.querySelector(`[data-task="${taskNumber}"]`); if (activeLink) activeLink.classList.add('active'); }
+function getCourseData() {
+    // Временная заглушка, пока данные загружаются с сервера
+    return JSON.parse(JSON.stringify(courseDataDefaults));
+}
+
+// ============ ЗАГРУЗКА ПРИЛОЖЕНИЯ ============
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM загружен, инициализируем приложение...');
+    initNavigation();
+    initAccordion();
+    initButtons();
+    userSystem = new UserSystem();
+    taskCompletionSystem = new TaskCompletionSystem();
+    mistakesSystem = new MistakesSystem();
+    adminSystem = new AdminSystem();
+    dataExportImportSystem = new DataExportImportSystem();
+    await initAuthSystem();
+    checkAuthStatus();
+    await showTask('13');
+    updateHTMLForMathEditor();
+    setTimeout(() => { initMathEditor(); processMathExpressions(); }, 500);
+    console.log('Приложение инициализировано!');
 });
+    </script>
+</body>
+</html>
