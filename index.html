@@ -3952,211 +3952,287 @@ let currentTaskIndex = {13: 0, 15: 0, 18: 0};
 let currentTask = '13';
 
 // ============ ОСНОВНЫЕ ФУНКЦИИ ============
-function initNavigation() {
-    document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', function(e) { e.preventDefault(); showTask(this.getAttribute('data-task')); }); });
-}
-function initAccordion() {
-    document.querySelectorAll('.accordion-header').forEach(header => { header.addEventListener('click', function() { const item = this.parentElement; const isActive = item.classList.contains('active'); document.querySelectorAll('.accordion-item').forEach(acc => acc.classList.remove('active')); if (!isActive) item.classList.add('active'); }); });
-}
-function initButtons() {
-    const showAnswerBtn = document.getElementById('show-answer');
-    const nextTaskBtn = document.getElementById('next-task');
-    const prevTaskBtn = document.getElementById('prev-task');
-    if (showAnswerBtn) showAnswerBtn.addEventListener('click', function() { const answerContent = document.getElementById('answer-content'); if (answerContent.classList.contains('hidden')) { answerContent.classList.remove('hidden'); answerContent.classList.add('visible'); this.innerHTML = '<i class="fas fa-eye-slash"></i> Скрыть ответ'; } else { answerContent.classList.remove('visible'); answerContent.classList.add('hidden'); this.innerHTML = '<i class="fas fa-eye"></i> Показать ответ'; } });
-    if (nextTaskBtn) nextTaskBtn.addEventListener('click', async function() {
-        const currentData = await getCourseData();
-        const task = currentData[currentTask];
-        if (task && task.practice && task.practice.length > 0) {
-            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % task.practice.length;
-            await showPracticeTask(currentTask);
-            document.getElementById('answer-content').classList.add('hidden');
-            document.getElementById('answer-content').classList.remove('visible');
-            document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-            await updateProgress(currentTask);
-            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
-            if (mistakesSystem) mistakesSystem.renderMistakes();
-        }
-    });
-    if (prevTaskBtn) prevTaskBtn.addEventListener('click', async function() {
-        const currentData = await getCourseData();
-        const task = currentData[currentTask];
-        if (task && task.practice && task.practice.length > 0) {
-            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + task.practice.length) % task.practice.length;
-            await showPracticeTask(currentTask);
-            document.getElementById('answer-content').classList.add('hidden');
-            document.getElementById('answer-content').classList.remove('visible');
-            document.getElementById('show-answer').innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
-            await updateProgress(currentTask);
-            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
-            if (mistakesSystem) mistakesSystem.renderMistakes();
-        }
-    });
-}
-function initExampleTabs() {
-    document.addEventListener('click', function(e) { if (e.target.classList.contains('example-tab')) { const tabsContainer = e.target.closest('.example-tabs'); const exampleType = e.target.getAttribute('data-type'); const examplesContent = tabsContainer.nextElementSibling; tabsContainer.querySelectorAll('.example-tab').forEach(tab => tab.classList.remove('active')); e.target.classList.add('active'); examplesContent.querySelectorAll('.example').forEach(example => example.classList.remove('active')); const targetExample = examplesContent.querySelector(`.example.${exampleType}`); if (targetExample) targetExample.classList.add('active'); } });
-}
-async function initAuthSystem() {
-    const authButton = document.getElementById('auth-button');
-    const logoutButton = document.getElementById('logout-button');
-    const modal = document.getElementById('auth-modal');
-    const closeModal = document.querySelector('.close-modal');
-    const authTabs = document.querySelectorAll('.auth-tab');
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    if (!authButton || !modal) return;
-    authButton.addEventListener('click', () => modal.style.display = 'block');
-    if (closeModal) closeModal.addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-    authTabs.forEach(tab => { tab.addEventListener('click', () => { const tabName = tab.getAttribute('data-tab'); authTabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); if (loginForm) loginForm.classList.remove('active'); if (registerForm) registerForm.classList.remove('active'); if (tabName === 'login' && loginForm) loginForm.classList.add('active'); else if (registerForm) registerForm.classList.add('active'); }); });
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('login-email').value; const password = document.getElementById('login-password').value; const result = await userSystem.login(email, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вход выполнен успешно!', 'success'); } else showNotification(result.message, 'error'); });
-    }
-    if (registerForm) {
-        registerForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = document.getElementById('register-email').value; const username = document.getElementById('register-username').value; const password = document.getElementById('register-password').value; const result = await userSystem.register(email, username, password); if (result.success) { modal.style.display = 'none'; await taskCompletionSystem.loadCompletedTasksFromServer(); checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Регистрация прошла успешно!', 'success'); } else showNotification(result.message, 'error'); });
-    }
-    if (logoutButton) logoutButton.addEventListener('click', () => { userSystem.logout(); taskCompletionSystem.currentUser = null; checkAuthStatus(); taskCompletionSystem.updateAllCompletionStates(); taskCompletionSystem.updateStatistics(); mistakesSystem.renderMistakes(); showNotification('Вы вышли из системы', 'info'); });
-}
-function checkAuthStatus() {
-    const authButton = document.getElementById('auth-button');
-    const userInfo = document.getElementById('user-info');
-    const ratingSection = document.getElementById('rating-section');
-    const userName = document.getElementById('user-name');
-    const adminButton = document.getElementById('admin-button');
-    if (!authButton || !userInfo || !ratingSection) return;
-    if (userSystem.currentUser) {
-        authButton.classList.add('hidden');
-        userInfo.classList.remove('hidden');
-        ratingSection.classList.remove('hidden');
-        if (userName) userName.textContent = userSystem.currentUser.username;
-        if (adminButton) adminButton.classList.remove('hidden');
-    } else {
-        authButton.classList.remove('hidden');
-        userInfo.classList.add('hidden');
-        ratingSection.classList.add('hidden');
-        if (adminButton) adminButton.classList.add('hidden');
-    }
-}
+let currentTaskIndex = { 13: 0, 15: 0, 18: 0 };
+let currentTask = '13';
+let userSystem, taskCompletionSystem, mistakesSystem, adminSystem;
+
 async function showTask(taskNumber) {
     if (taskNumber === 'test') {
         currentTask = 'test';
-        document.getElementById('task-title').textContent = 'Итоговый тест';
-        document.getElementById('practice-content').innerHTML = '';
-        document.getElementById('answer-content').classList.add('hidden');
+        document.getElementById('task-title').textContent = '📋 Итоговый тест';
         renderTest();
-        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-        document.querySelector(`[data-task="test"]`).classList.add('active');
-        const taskProgress = document.querySelector('.task-progress');
-        if (taskProgress) taskProgress.style.display = 'none';
-        const completionFilter = document.querySelector('.completion-filter');
-        if (completionFilter) completionFilter.style.display = 'none';
-        const accordionItems = document.querySelectorAll('.accordion-item');
-        accordionItems.forEach((item, index) => { if (index !== 4) item.style.display = 'none'; else { item.style.display = 'block'; item.classList.add('active'); } });
-        const practiceControls = document.querySelector('.practice-controls');
-        if (practiceControls) practiceControls.style.display = 'none';
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        document.querySelector('[data-task="test"]').classList.add('active');
+        document.querySelector('.task-progress').style.display = 'none';
+        document.querySelectorAll('.accordion-item').forEach((item, i) => { if (i !== 4) item.style.display = 'none'; else item.style.display = 'block'; });
         return;
     }
-    const taskProgress = document.querySelector('.task-progress');
-    if (taskProgress) taskProgress.style.display = 'flex';
-    const completionFilter = document.querySelector('.completion-filter');
-    if (completionFilter) completionFilter.style.display = 'flex';
-    const accordionItems = document.querySelectorAll('.accordion-item');
-    accordionItems.forEach(item => item.style.display = 'block');
-    const practiceControls = document.querySelector('.practice-controls');
-    if (practiceControls) practiceControls.style.display = 'flex';
-    const currentData = await getCourseData();
-    const task = currentData[taskNumber];
+    document.querySelector('.task-progress').style.display = 'flex';
+    document.querySelectorAll('.accordion-item').forEach(item => item.style.display = 'block');
+    const data = await getCourseData();
+    const task = data[taskNumber];
     if (!task) return;
     currentTask = taskNumber;
     document.getElementById('task-title').textContent = task.title;
     document.getElementById('theory-content').innerHTML = task.theory;
     document.getElementById('algorithm-content').innerHTML = task.algorithm;
-    document.getElementById('examples-content').innerHTML = task.examples;
+    document.getElementById('examples-content').innerHTML = '';
     if (currentTaskIndex[taskNumber] === undefined) currentTaskIndex[taskNumber] = 0;
     await showPracticeTask(taskNumber);
-    const answerContent = document.getElementById('answer-content');
-    if (answerContent) { answerContent.classList.add('hidden'); answerContent.classList.remove('visible'); }
-    const showAnswerBtn = document.getElementById('show-answer');
-    if (showAnswerBtn) showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Показать ответ';
+    document.getElementById('answer-content').classList.add('hidden');
+    document.getElementById('show-answer').innerHTML = '👁️ Показать ответ';
     await updateProgress(taskNumber);
-    updateActiveNavLink(taskNumber);
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.querySelector(`[data-task="${taskNumber}"]`).classList.add('active');
     if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(taskNumber), currentTaskIndex[taskNumber]);
     if (mistakesSystem) mistakesSystem.renderMistakes();
-    initExampleTabs();
-    const trigButtonContainer = document.getElementById('trig-circle-button-container');
-    if (trigButtonContainer) trigButtonContainer.style.display = taskNumber === '13' ? 'block' : 'none';
-    const coordSection = document.getElementById('coord-plane-section');
-    if (coordSection) coordSection.style.display = taskNumber === '18' ? 'block' : 'none';
-    const intervalButtonContainer = document.getElementById('interval-constructor-button-container');
-    const intervalContainer = document.getElementById('interval-constructor-container');
-    if (intervalButtonContainer && intervalContainer) { intervalButtonContainer.style.display = taskNumber === '15' ? 'block' : 'none'; intervalContainer.style.display = 'none'; }
-    setTimeout(() => processMathExpressions(), 100);
 }
+
 async function showPracticeTask(taskNumber) {
-    const currentData = await getCourseData();
-    const task = currentData[taskNumber];
+    const data = await getCourseData();
+    const task = data[taskNumber];
     const index = currentTaskIndex[taskNumber] || 0;
-    const practiceContent = document.getElementById('practice-content');
-    const answerContent = document.getElementById('answer-content');
-
-    if (task && task.practice && task.practice.length > 0 && task.practice[index] && practiceContent) {
-        practiceContent.innerHTML = task.practice[index].question;
-    } else if (practiceContent) {
-        practiceContent.innerHTML = '<p>Задания для этого раздела еще не добавлены.</p>';
+    const practiceDiv = document.getElementById('practice-content');
+    const answerDiv = document.getElementById('answer-content');
+    if (task.practice && task.practice[index]) {
+        practiceDiv.innerHTML = task.practice[index].question;
+        answerDiv.innerHTML = task.practice[index].answer;
+    } else {
+        practiceDiv.innerHTML = '<p>Задания пока не добавлены</p>';
+        answerDiv.innerHTML = '';
     }
-
-    if (task && task.practice && task.practice.length > 0 && task.practice[index] && answerContent) {
-        answerContent.innerHTML = task.practice[index].answer;
-    } else if (answerContent) {
-        answerContent.innerHTML = '<p>Решение пока не доступно.</p>';
-    }
-
-    setTimeout(() => {
-        processMathExpressions();
-    }, 100);
 }
+
 async function updateProgress(taskNumber) {
-    const currentData = await getCourseData();
-    const task = currentData[taskNumber];
+    const data = await getCourseData();
+    const total = data[taskNumber]?.practice?.length || 0;
     const current = (currentTaskIndex[taskNumber] || 0) + 1;
-    const total = task && task.practice ? task.practice.length : 0;
-    const currentTaskEl = document.getElementById('current-task');
-    const totalTasksEl = document.getElementById('total-tasks');
-
-    if (currentTaskEl) currentTaskEl.textContent = current;
-    if (totalTasksEl) totalTasksEl.textContent = total;
+    document.getElementById('current-task').textContent = current;
+    document.getElementById('total-tasks').textContent = total;
 }
-async function updateCurrentTask() { 
-    if (currentTask && currentTask !== 'test') {
-        await showTask(currentTask); 
-    } else if (currentTask === 'test') {
-        renderTest(); 
+
+async function updateCurrentTask() {
+    if (currentTask === 'test') renderTest();
+    else await showTask(currentTask);
+    if (taskCompletionSystem) await taskCompletionSystem.updateStatistics();
+    if (mistakesSystem) mistakesSystem.renderMistakes();
+}
+
+function initNavigation() {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            showTask(link.dataset.task);
+        });
+    });
+}
+
+function initAccordion() {
+    document.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const item = header.parentElement;
+            item.classList.toggle('active');
+        });
+    });
+}
+
+function initButtons() {
+    document.getElementById('show-answer')?.addEventListener('click', () => {
+        const answer = document.getElementById('answer-content');
+        if (answer.classList.contains('hidden')) {
+            answer.classList.remove('hidden');
+            answer.classList.add('visible');
+            document.getElementById('show-answer').innerHTML = '🙈 Скрыть ответ';
+        } else {
+            answer.classList.add('hidden');
+            answer.classList.remove('visible');
+            document.getElementById('show-answer').innerHTML = '👁️ Показать ответ';
+        }
+    });
+    document.getElementById('next-task')?.addEventListener('click', async () => {
+        const data = await getCourseData();
+        const tasks = data[currentTask]?.practice || [];
+        if (tasks.length) {
+            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] + 1) % tasks.length;
+            await showPracticeTask(currentTask);
+            document.getElementById('answer-content').classList.add('hidden');
+            document.getElementById('show-answer').innerHTML = '👁️ Показать ответ';
+            await updateProgress(currentTask);
+            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
+            if (mistakesSystem) mistakesSystem.renderMistakes();
+        }
+    });
+    document.getElementById('prev-task')?.addEventListener('click', async () => {
+        const data = await getCourseData();
+        const tasks = data[currentTask]?.practice || [];
+        if (tasks.length) {
+            currentTaskIndex[currentTask] = (currentTaskIndex[currentTask] - 1 + tasks.length) % tasks.length;
+            await showPracticeTask(currentTask);
+            document.getElementById('answer-content').classList.add('hidden');
+            document.getElementById('show-answer').innerHTML = '👁️ Показать ответ';
+            await updateProgress(currentTask);
+            if (taskCompletionSystem) taskCompletionSystem.updateCompletionState(parseInt(currentTask), currentTaskIndex[currentTask]);
+            if (mistakesSystem) mistakesSystem.renderMistakes();
+        }
+    });
+}
+
+async function initAuth() {
+    const authBtn = document.getElementById('auth-button');
+    const logoutBtn = document.getElementById('logout-button');
+    const modal = document.getElementById('auth-modal');
+    const closeModal = document.querySelector('.close-modal');
+    if (!authBtn) return;
+    authBtn.onclick = () => modal.style.display = 'block';
+    if (closeModal) closeModal.onclick = () => modal.style.display = 'none';
+    window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.onclick = () => {
+            const name = tab.dataset.tab;
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`${name}-form`).classList.add('active');
+        };
+    });
+    document.getElementById('login-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const result = await userSystem.login(email, password);
+        if (result.success) {
+            modal.style.display = 'none';
+            await taskCompletionSystem.loadCompletedTasksFromServer();
+            checkAuthUI();
+            await taskCompletionSystem.updateStatistics();
+            await mistakesSystem.renderMistakes();
+            showNotification('Добро пожаловать!', 'success');
+        } else showNotification(result.message, 'error');
+    };
+    document.getElementById('register-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('register-email').value;
+        const name = document.getElementById('register-username').value;
+        const password = document.getElementById('register-password').value;
+        const result = await userSystem.register(email, name, password);
+        if (result.success) {
+            modal.style.display = 'none';
+            await taskCompletionSystem.loadCompletedTasksFromServer();
+            checkAuthUI();
+            await taskCompletionSystem.updateStatistics();
+            await mistakesSystem.renderMistakes();
+            showNotification('Регистрация успешна!', 'success');
+        } else showNotification(result.message, 'error');
+    };
+    if (logoutBtn) logoutBtn.onclick = () => {
+        userSystem.logout();
+        taskCompletionSystem.currentUser = null;
+        checkAuthUI();
+        taskCompletionSystem.updateStatistics();
+        mistakesSystem.renderMistakes();
+        showNotification('Вы вышли', 'info');
+    };
+}
+
+function checkAuthUI() {
+    const authBtn = document.getElementById('auth-button');
+    const userInfo = document.getElementById('user-info');
+    const rating = document.getElementById('rating-section');
+    const userName = document.getElementById('user-name');
+    const adminBtn = document.getElementById('admin-button');
+    if (userSystem.currentUser) {
+        authBtn.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        rating.classList.remove('hidden');
+        if (userName) userName.textContent = userSystem.currentUser.username;
+        if (adminBtn && (userSystem.isAdmin() || userSystem.isOwner())) adminBtn.classList.remove('hidden');
+    } else {
+        authBtn.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+        rating.classList.add('hidden');
+        if (adminBtn) adminBtn.classList.add('hidden');
     }
-    if (taskCompletionSystem) await taskCompletionSystem.updateStatistics(); 
-    if (mistakesSystem) mistakesSystem.renderMistakes(); 
-}
-function updateActiveNavLink(taskNumber) { document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active')); const activeLink = document.querySelector(`[data-task="${taskNumber}"]`); if (activeLink) activeLink.classList.add('active'); }
-async function getCourseData() {
-    const serverData = await loadCourseData();
-    return serverData;
 }
 
-// ============ ЗАГРУЗКА ПРИЛОЖЕНИЯ ============
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('DOM загружен, инициализируем приложение...');
-    initNavigation();
-    initAccordion();
-    initButtons();
+function setupExportImport() {
+    document.getElementById('export-data-btn')?.addEventListener('click', () => {
+        const data = {};
+        for (let task of [13, 15, 18]) {
+            const examples = localStorage.getItem(`admin_examples_${task}`);
+            const practice = localStorage.getItem(`admin_practice_${task}`);
+            if (examples) data[`admin_examples_${task}`] = JSON.parse(examples);
+            if (practice) data[`admin_practice_${task}`] = JSON.parse(practice);
+        }
+        const test = localStorage.getItem('testQuestions');
+        if (test) data.testQuestions = JSON.parse(test);
+        const mistakes = localStorage.getItem('userMistakes');
+        if (mistakes) data.userMistakes = JSON.parse(mistakes);
+        const shared = localStorage.getItem('sharedMistakes');
+        if (shared) data.sharedMistakes = JSON.parse(shared);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ege_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showNotification('Данные экспортированы', 'success');
+    });
+    const importInput = document.createElement('input');
+    importInput.type = 'file';
+    importInput.accept = '.json';
+    importInput.style.display = 'none';
+    document.body.appendChild(importInput);
+    document.getElementById('import-data-btn')?.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                for (const [key, value] of Object.entries(data)) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                }
+                await updateCurrentTask();
+                if (mistakesSystem) {
+                    mistakesSystem.userMistakes = JSON.parse(localStorage.getItem('userMistakes') || '[]');
+                    mistakesSystem.sharedMistakes = JSON.parse(localStorage.getItem('sharedMistakes') || '[]');
+                    mistakesSystem.renderMistakes();
+                }
+                if (adminSystem) {
+                    adminSystem.loadExamplesList();
+                    adminSystem.loadPracticeList();
+                    adminSystem.loadTestQuestions();
+                }
+                if (currentTask === 'test') renderTest();
+                showNotification('Импорт завершен!', 'success');
+            } catch (err) { showNotification('Ошибка импорта', 'error'); }
+        };
+        reader.readAsText(file);
+        importInput.value = '';
+    });
+    document.getElementById('reset-data-btn')?.addEventListener('click', () => {
+        if (confirm('Удалить ВСЕ данные? Это необратимо!')) {
+            localStorage.clear();
+            location.reload();
+        }
+    });
+}
+
+// ============ ЗАПУСК ============
+document.addEventListener('DOMContentLoaded', async () => {
     userSystem = new UserSystem();
     taskCompletionSystem = new TaskCompletionSystem();
     mistakesSystem = new MistakesSystem();
     adminSystem = new AdminSystem();
-    dataExportImportSystem = new DataExportImportSystem();
-    await initAuthSystem();
-    checkAuthStatus();
+    initNavigation();
+    initAccordion();
+    initButtons();
+    await initAuth();
+    checkAuthUI();
     await showTask('13');
-    updateHTMLForMathEditor();
-    setTimeout(() => { initMathEditor(); processMathExpressions(); }, 500);
-    console.log('Приложение инициализировано!');
+    setupExportImport();
 });
     </script>
 </body>
